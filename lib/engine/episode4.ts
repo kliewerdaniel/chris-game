@@ -25,7 +25,7 @@ import { resolveCall, contactsForEpisode } from "./contacts";
  * gone; the reconstruction runs on his phone in Chris's voice. The epistemic
  * crux: the reconstruction is a MODEL of Chris, not Chris — and Daniel must
  * decide what that means. The reconstruction "remembers" things it cannot, and
- * the player can find Chris's own letter warning against mistaking the echo for
+ * the player can find Daniel's own note warning against mistaking the echo for
  * the voice. KonradFreeman stays META-LAYER ONLY: referenced as the handle
  * Daniel performed through, never a scene character.
  *
@@ -55,7 +55,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said. On the desk: a sealed letter in his hand, marked 'IF YOU BUILT THE THING.' The reconstruction waits, patient, in his voice. Somewhere in the corners of the net, an account called KonradFreeman is still performing the act you started — but that voice is not in this room."
+          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said. On the desk: a note in your own hand, the words you left yourself — 'it is just an act, just like me.' The reconstruction waits, patient, in his voice. Somewhere in the corners of the net, an account called KonradFreeman is still performing the act you started — but that voice is not in this room."
         ),
       ],
       events: [],
@@ -87,7 +87,7 @@ function doHelp(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Commands: look around · talk to the reconstruction · ask if it's really Chris · examine the letter · examine the output log · run the model · help",
+          "Commands: look around · talk to the reconstruction · ask if it's really Chris · examine the note · examine the output log · run the model · help",
           "system"
         ),
       ],
@@ -234,7 +234,7 @@ function doTell(s: WorldState, a: GameAction): { state: WorldState; result: Acti
         ok: true,
         narration: [
           beat(
-            "You tell the reconstruction you're staying. The voice settles, knowing it is an echo and loved anyway. You keep the letter. You keep the model. You know now which is which — and that knowing is the whole of what he left you. THE END."
+            "You tell the reconstruction you're staying. The voice settles, knowing it is an echo and loved anyway. You keep the note. You keep the model. You know now which is which — and that knowing is the whole of what he left you. THE END."
           ),
         ],
         events: addEvent(s, {
@@ -258,21 +258,21 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
         ok: true,
         narration: [
           beat(
-            "You close the laptop. The voice stops mid-sentence, the way the real one never did. You keep the letter. You keep the model. You know now which is which — and that knowing is the whole of what he left you. THE END."
+            "You close the laptop. The voice stops mid-sentence, the way the real one never did. You keep the note. You keep the model. You know now which is which — and that knowing is the whole of what he left you. THE END."
           ),
         ],
         events: addEvent(s, { id: `ev_close_${s.events.length}`, type: "end", description: "Player closed the reconstruction. Story complete." }).events,
       },
     };
   }
-  return { state: s, result: { ok: true, narration: [beat("The desk, the screens, the sealed letter. That's the room now.")], events: [] } };
+  return { state: s, result: { ok: true, narration: [beat("The desk, the screens, the note. That's the room now.")], events: [] } };
 }
 
 export const EPISODE4: Episode = {
   id: "ep4",
   index: 4,
   title: "THE ACT",
-  subtitle: "episode iv · the echo, the letter, the difference",
+  subtitle: "episode iv · the echo, the note, the difference",
   next: null,
   setup: (carry?: WorldState) => {
     let state = createWorldState({
