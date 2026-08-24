@@ -111,7 +111,44 @@ export const CHRIS: CharacterDef = {
     withholds: ["ep1.chris.with_sarge", "ep1.chris.owes_money"],
     // Chris's false belief (he thinks the player suspects nothing — true at start)
     misconceptions: {},
+    // secrets the disclosure policy protects (gates goal-conflict + trust gate)
+    secrets: ["ep1.chris.with_sarge", "ep1.chris.owes_money"],
   },
+  /** Chris's live belief state — the falsehoods he actively maintains. */
+  beliefs: [
+    {
+      id: "chris.belief.sarge_fine",
+      text:
+        "Him and Sarge, they were tight. Whatever anybody says, they were fine. No fight, no trouble — just two Marines who had each other's backs. That's all there is to it.",
+      confidence: 0.94,
+      source: "memory",
+      emotionalWeight: 0.9,
+      supports: [],
+      contradicts: ["ep1.chris.with_sarge"],
+      topics: ["sarge_fine", "sarge", "the night"],
+      lieAboutFactId: "ep1.chris.with_sarge",
+    },
+    {
+      id: "chris.belief.money_fine",
+      text:
+        "Money? Nah. Ain't no debt. People love to talk, that's all. We squared everything. Nothing hanging over us.",
+      confidence: 0.88,
+      source: "memory",
+      emotionalWeight: 0.8,
+      supports: [],
+      contradicts: ["ep1.chris.owes_money"],
+      topics: ["money", "debt"],
+      lieAboutFactId: "ep1.chris.owes_money",
+    },
+  ],
+  /** Chris's live objective stack — drives the disclosure policy. */
+  goalStack: [
+    { id: "chris.goal.protect", text: "keep the player safe", kind: "primary", weight: 1.0, active: true },
+    { id: "chris.goal.night", text: "get the player through the night", kind: "primary", weight: 0.9, active: true },
+    { id: "chris.goal.hide_note", text: "keep the note hidden", kind: "constraint", weight: 0.9, active: true },
+    { id: "chris.goal.truth", text: "keep the player from the truth about Sarge tonight", kind: "secondary", weight: 0.7, active: true },
+    { id: "chris.goal.memory", text: "protect the memory of Sarge", kind: "emotional", weight: 0.6, active: true },
+  ],
   baseTrust: 55,
 };
 
@@ -136,7 +173,73 @@ export const PLAYER_TEMPLATE: CharacterDef = {
   baseTrust: 30,
 };
 
+/**
+ * MOTHER — the player's mother and Chris's contact. The SECOND character.
+ *
+ * Deliberately half-drawn: she has her OWN knowledge boundaries, her OWN
+ * secret, and her OWN conflicting belief about that night. She does NOT know
+ * Chris was with Sarge. In Episode 1 she is unreachable (calls go to voice-
+ * mail), but the disclosure engine evaluates her the same way it evaluates
+ * Chris — so when she becomes reachable in a later episode, she already has a
+ * mind. This exercises separate knowledge + conflicting testimony early.
+ */
+export const MOTHER: CharacterDef = {
+  id: "mother",
+  name: "Mother",
+  identity:
+    "The player's mother. Unwell, proud, and protective in her own way. Chris respects her; contact between them is strained. She knows something about Sarge she has never said outright.",
+  personality: ["proud", "guarded about her own pain", "fiercely protective of the player", "evasive when cornered"],
+  voice: {
+    style:
+      "Speak carefully, with warmth that stiffens when the subject turns to Sarge. Uses the player's childhood name. Avoids direct answers about that night.",
+    mannerisms: ["changes the subject when Sarge comes up", "asks about the player's wellbeing to deflect", "goes quiet before a hard truth"],
+  },
+  motivations: ["protect the player from the truth about Sarge", "keep her own role quiet", "stay in Chris's good graces"],
+  fears: ["the player learning what she knows", "being the one who tells it"],
+  goals: ["shield the player", "preserve her own secret"],
+  secrets: ["ep1.mother.knows"],
+  relationships: {
+    player: "Her child. She would lie to keep them safe.",
+    chris: "The one she trusts to keep the player alive. Strained but real.",
+    sarge: "Dead. She knows more than she admits.",
+  },
+  timeline: [{ date: "tonight", event: "At home, phone nearby, not answering." }],
+  memories: [],
+  knowledge: {
+    // She KNOWS Sarge is dead and that something about that night is wrong,
+    // but she does NOT know Chris was with Sarge — her belief fills the gap.
+    knows: ["ep1.sarge.dead", "ep1.mother.knows"],
+    doesNotKnow: ["ep1.chris.with_sarge"],
+    lies: {
+      chris_alibi:
+        "She tells the player Chris was 'off drinking somewhere, like he does' — a guess she's mistaken for fact.",
+    },
+    withholds: ["ep1.mother.knows"],
+    misconceptions: {},
+    secrets: ["ep1.mother.knows"],
+  },
+  /** Her false belief: Chris was off drinking, NOT with Sarge. */
+  beliefs: [
+    {
+      id: "mother.belief.chris_drinking",
+      text: "She believes Chris was off drinking that night and had nothing to do with what happened to Sarge. (Canonical: Chris was with Sarge.)",
+      confidence: 0.7,
+      source: "inference",
+      emotionalWeight: 0.6,
+      supports: [],
+      contradicts: ["ep1.chris.with_sarge"],
+      lieAboutFactId: "ep1.chris.with_sarge",
+    },
+  ],
+  goalStack: [
+    { id: "mother.goal.shield", text: "shield the player from the truth", kind: "primary", weight: 1.0, active: true },
+    { id: "mother.goal.secret", text: "preserve her own secret", kind: "constraint", weight: 0.9, active: true },
+  ],
+  baseTrust: 40,
+};
+
 export const CHARACTERS: Record<string, CharacterDef> = {
   chris: CHRIS,
   player: PLAYER_TEMPLATE,
+  mother: MOTHER,
 };

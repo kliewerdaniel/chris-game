@@ -29,6 +29,16 @@ interface TurnResponse {
   character?: { chrisTrust?: number };
 }
 
+/** Shape returned by /api/investigation — the player's consistency board. */
+interface InvestigationPayload {
+  episodeId: string;
+  established: string[];
+  discovered: string[];
+  corroboration: { factId: string; status?: FactStatus; verdict: string; supporters: number; contradictors: number }[];
+  visibleContradictions: { factId: string; report: string; claimLabels: string[] }[];
+  openLeads: { factId: string; label: string; degree: number }[];
+}
+
 const SAVE_KEY = "chris-game-save-v2";
 
 const EPISODE_INTROS: Record<string, NarrationLine[]> = {
@@ -86,6 +96,8 @@ export function GameClient() {
   const [established, setEstablished] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [epMeta, setEpMeta] = useState<EpisodeMeta | null>(null);
+  const [board, setBoard] = useState<InvestigationPayload | null>(null);
+  const [boardOpen, setBoardOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
@@ -163,6 +175,7 @@ export function GameClient() {
     setEstablished([]);
     setBusy(false);
     save(ws, intro, [], [], data.episode ?? null);
+    setBoard(null);
     stickRef.current = true;
     scrollToBottom(true);
   }
@@ -173,6 +186,23 @@ export function GameClient() {
       SAVE_KEY,
       JSON.stringify({ state: JSON.stringify(ws), log: lg, evidence: ev, established: est, epMeta: meta })
     );
+  }
+
+  /** Pull the live consistency board from the read-only /api/investigation endpoint. */
+  async function refreshBoard(ws: WorldState) {
+    try {
+      const res = await fetch("/api/investigation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: JSON.stringify(ws) }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as InvestigationPayload & { ok?: boolean };
+      if (data?.ok === false) return;
+      setBoard(data);
+    } catch {
+      /* board is best-effort; never block play on it */
+    }
   }
 
   async function advanceEpisode() {
@@ -193,6 +223,7 @@ export function GameClient() {
       setEpMeta(data.episode ?? null);
       setToast(`Now playing: ${data.episode?.title ?? ""}`);
       save(ws, newLog, evidence, established, data.episode ?? null);
+      setBoard(null);
       stickRef.current = true;
       scrollToBottom(true);
     } finally {
@@ -241,6 +272,8 @@ export function GameClient() {
         established,
         data.episode ?? epMeta
       );
+      // Refresh the consistency board against the new state (best-effort).
+      if (boardOpen) void refreshBoard(ws);
     } catch (e) {
       setToast("The connection faltered. Your progress is safe.");
     } finally {
@@ -268,6 +301,10 @@ export function GameClient() {
           <br />
           <a onClick={startNew} style={{ cursor: "pointer" }}>
             [new game]
+          </a>
+          {" · "}
+          <a onClick={() => { setBoardOpen(true); if (state) void refreshBoard(state); }} style={{ cursor: "pointer" }}>
+            [board]
           </a>
         </div>
       </header>
@@ -352,6 +389,58 @@ export function GameClient() {
       </section>
 
       <aside className="panel-right">
+        {boardOpen && (
+          <div className="board-wrap">
+            <div className="section-title board-title">
+              Consistency Board
+              <a onClick={() => setBoardOpen(false)} style={{ cursor: "pointer", float: "right", fontSize: 11 }}>[close]</a>
+            </div>
+            {!board ? (
+              <div className="empty">No data yet.</div>
+            ) : (
+              <div className="board-body">
+                {board.openLeads?.length > 0 && (
+                  <div className="board-section">
+                    <div className="board-label">OPEN LEADS ({board.openLeads.length})</div>
+                    {board.openLeads.map((l) => (
+                      <div key={l.factId} className="board-row lead">
+                        <span className="dot" />
+                        <span className="board-text">{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {board.visibleContradictions?.length > 0 && (
+                  <div className="board-section">
+                    <div className="board-label warn">CONTRADICTIONS ({board.visibleContradictions.length})</div>
+                    {board.visibleContradictions.map((c) => (
+                      <div key={c.factId} className="board-row contra">
+                        <span className="board-text">{c.report}</span>
+                        {c.claimLabels?.length > 0 && (
+                          <div className="board-sub">{c.claimLabels.join("  ·  ")}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="board-section">
+                  <div className="board-label">CORROBORATION ({board.corroboration.length})</div>
+                  {board.corroboration.map((c) => (
+                    <div key={c.factId} className={`board-row ${c.contradictors > 0 ? "mixed" : c.supporters > 1 ? "ok" : "thin"}`}>
+                      <span className="board-fact">{c.factId}</span>
+                      <span className="board-text">
+                        {c.verdict}
+                        {(c.supporters > 0 || c.contradictors > 0) && (
+                          <span className="board-counts">{"  "}({c.supporters}✓ / {c.contradictors}✗)</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="section-title">Evidence</div>
         {evidence.length === 0 && <div className="empty">Nothing recovered yet. Search the room.</div>}
         {evidence.map((e) => (

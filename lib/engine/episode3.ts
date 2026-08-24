@@ -17,6 +17,7 @@ import { instantiateEvidence, markDiscovered, getEvidenceDef } from "../core/evi
 import { CHARACTERS } from "../characters/chris";
 import { characterEngine } from "../characters/engine";
 import { Episode, EpisodeContext, beat } from "../core/episode";
+import { resolveCall, contactsForEpisode } from "./contacts";
 
 /**
  * EPISODE 3 — THE LAST CALL.
@@ -291,6 +292,8 @@ export const EPISODE3: Episode = {
         evidenceIds: [...carry.evidenceIds],
         knownFacts: [...new Set([...carry.knownFacts, ...state.knownFacts])],
       };
+      // Live contacts for this episode (Mother reachable in Ep3 too).
+      state = { ...state, contacts: contactsForEpisode("ep3") };
     }
     state.quests["ep3.truth"] = { id: "ep3.truth", title: "Get Chris to tell the truth about Sarge", status: "active" };
     state.quests["ep3.presence"] = { id: "ep3.presence", title: "Be with him, however he'll let you", status: "active" };
@@ -314,6 +317,8 @@ export const EPISODE3: Episode = {
         return (s, a) => doAsk(s, a);
       case "confront":
         return (s) => doConfront(s);
+      case "call":
+        return (s, a) => resolveCall(s, a.targetId);
       case "examine":
       case "search":
       case "use":

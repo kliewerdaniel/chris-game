@@ -16,6 +16,7 @@ import { EPISODE1 } from "./episode1";
 import { EPISODE2 } from "./episode2";
 import { EPISODE3 } from "./episode3";
 import { EPISODE4 } from "./episode4";
+import { applyWorldEvents } from "./world-events";
 
 export const EPISODES: Record<string, Episode> = {
   ep1: EPISODE1,
@@ -106,6 +107,12 @@ export class GameEngine {
 
     let { state: next, result } = await handler(state, action, ctx);
 
+    // Apply deterministic scheduled world events against the post-action state.
+    // Fired ids are idempotent (recorded in next.firedEventIds). These carry
+    // seeded, canonical narration — the model never authors world happenings.
+    const worldStep = applyWorldEvents(next);
+    next = worldStep.state;
+
     // Voice character turns (talk/ask/confront) and safety-net empty narration.
     if (result.ok) {
       const needsVoice = ["talk", "ask", "confront"].includes(action.type);
@@ -144,6 +151,7 @@ export class GameEngine {
       | undefined;
     const lieAbout = (result.stateChanges as any)?.lieAbout as string | undefined;
     const speaker = (result.stateChanges as any)?.speaker as string | undefined;
+    const seed = (result.stateChanges as any)?.seed as string | undefined;
     const topicLabel = (result as any).topicLabel as string | undefined;
 
     if (!["talk", "ask", "confront"].includes(action.type)) return result.narration;
@@ -164,6 +172,7 @@ export class GameEngine {
     const ctx = this.deps.narrator.buildContext(state, action, {
       handling: (handling ?? "truth") as any,
       lieText,
+      seed,
       topicLabel,
       characterId,
       discoveredEvidenceTitles: state.evidenceIds,

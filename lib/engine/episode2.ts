@@ -17,6 +17,7 @@ import { instantiateEvidence, markDiscovered, getEvidenceDef } from "../core/evi
 import { CHARACTERS } from "../characters/chris";
 import { characterEngine } from "../characters/engine";
 import { Episode, EpisodeContext, beat } from "../core/episode";
+import { resolveCall, contactsForEpisode } from "./contacts";
 
 /**
  * EPISODE 2 — THE PORCH.
@@ -335,6 +336,8 @@ export const EPISODE2: Episode = {
       state = { ...state, knownFacts: [...new Set([...carry.knownFacts, ...state.knownFacts])] };
       // The discharge secret is withheld until found.
       state = characterEngine.liftWithhold(state, "chris", "ep1.chris.with_sarge"); // already known
+      // Live contacts for this episode (Mother becomes reachable from Ep2).
+      state = { ...state, contacts: contactsForEpisode("ep2") };
     }
     state.quests["ep2.learn"] = { id: "ep2.learn", title: "Learn what Chris will teach", status: "active" };
     state.quests["ep2.truth"] = { id: "ep2.truth", title: "Decide what to do with what you know", status: "active" };
@@ -358,6 +361,8 @@ export const EPISODE2: Episode = {
         return (s, a) => doAsk(s, a);
       case "confront":
         return (s) => doConfront(s);
+      case "call":
+        return (s, a) => resolveCall(s, a.targetId);
       case "examine":
       case "search":
       case "use":

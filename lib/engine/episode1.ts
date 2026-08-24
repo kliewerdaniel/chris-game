@@ -17,6 +17,7 @@ import { instantiateEvidence, markDiscovered, getEvidenceDef } from "../core/evi
 import { CHRIS, CHARACTERS } from "../characters/chris";
 import { characterEngine } from "../characters/engine";
 import { Episode, EpisodeContext, beat } from "../core/episode";
+import { resolveCall, defaultContacts } from "./contacts";
 
 /**
  * EPISODE 1 — THE NIGHT BEFORE.
@@ -155,8 +156,12 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       },
     };
   }
+  // Talking to Chris raises confrontation pressure only if he's already guarded;
+  // otherwise it's just presence. The disclosure policy reads recentlyConfronted
+  // after a true confront, not from talk.
   let next = characterEngine.setMood(s, "chris", "guarded");
   const topicLabel = a.topicId ? topicToLabel(a.topicId) : "general";
+  const decision = characterEngine.resolveDisclosure(next, "chris", a.topicId ?? "general", "talk");
   return {
     state: next,
     result: {
@@ -164,6 +169,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [beat("You turn to Chris. He doesn't look away from the door.")],
       events: [],
       topicLabel,
+      stateChanges: { handling: decision.mode, lieAbout: decision.lieAboutFactId, seed: decision.seed, why: decision.why },
     } as any,
   };
 }
@@ -177,9 +183,13 @@ function doAsk(s: WorldState, a: GameAction): { state: WorldState; result: Actio
   }
   const topic = a.topicId ?? "general";
   const topicLabel = topicToLabel(topic);
-  const handling = characterEngine.resolveTopic(s, "chris", topic);
 
-  let next = s;
+  // Procedural disclosure: the engine decides HOW Chris answers from his live
+  // belief/goal/trust state. The Ep1 contradiction (note vs "we were fine") is
+  // now EMERGENT from this policy, not hardcoded.
+  const decision = characterEngine.resolveDisclosure(s, "chris", topic, "ask");
+  let next = characterEngine.recordAsk(s, "chris", topic);
+
   if (topic === "sarge") {
     next = addKnownFact(next, "ep1.sarge.dead");
     next = setFlag(next, "ep1.asked_sarge", true);
@@ -194,15 +204,24 @@ function doAsk(s: WorldState, a: GameAction): { state: WorldState; result: Actio
       ok: true,
       narration: [beat(`You ask Chris about ${topicLabel}.`)],
       events: [],
-      stateChanges: { handling: handling.mode, lieAbout: handling.lieAbout },
+      stateChanges: {
+        handling: decision.mode,
+        lieAbout: decision.lieAboutFactId,
+        seed: decision.seed,
+        why: decision.why,
+      },
     } as any,
   };
 }
 
 function doConfront(s: WorldState): { state: WorldState; result: ActionResult } {
   let next = characterEngine.adjustTrust(s, "chris", -5);
+  next = characterEngine.markConfronted(next, "chris");
   next = setFlag(next, "ep1.confronted", true);
   next = { ...next, progression: s.progression + 1 };
+  // Route the confront through the disclosure policy so the model NEVER fabricates
+  // canon: the policy returns a seeded beat (deflect/threaten/lie/withhold).
+  const decision = characterEngine.resolveDisclosure(next, "chris", "sarge_fine", "confront");
   const nextWithEvent = addEvent(next, {
     id: `ev_confront_${s.events.length}`,
     type: "confront",
@@ -216,6 +235,13 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
         beat("You face him. The air goes still. Chris sets the bottle down, slow."),
       ],
       events: nextWithEvent.events,
+      topicLabel: "where he was that night with Sarge",
+      stateChanges: {
+        handling: decision.mode,
+        lieAbout: decision.lieAboutFactId,
+        seed: decision.seed,
+        why: decision.why,
+      },
     } as any,
   };
 }
@@ -330,44 +356,10 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
 }
 
 function doCall(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (!s.phoneUnlocked) {
-    return {
-      state: s,
-      result: {
-        ok: false,
-        reason: "The phone is face-down on the table. You haven't picked it up.",
-        narration: [],
-        events: [],
-      },
-    };
-  }
-  if (a.targetId === "mother") {
-    const nextWithEvent = addEvent(s, {
-      id: `ev_call_mom_${s.events.length}`,
-      type: "call",
-      description: "Player called Mother; no answer.",
-    });
-    return {
-      state: nextWithEvent,
-      result: {
-        ok: true,
-        narration: [
-          beat(
-            "You dial Mother. It rings. And rings. No answer — only the knowledge that she's unwell, and that this call can wait. Or can't."
-          ),
-        ],
-        events: nextWithEvent.events,
-      },
-    };
-  }
-  return {
-    state: s,
-    result: {
-      ok: true,
-      narration: [beat("No one else to call. Just Chris, sitting in the lamplight.")],
-      events: [],
-    },
-  };
+  // P4: dispatch through the phone-contact registry. The old special-case "call
+  // mother" path is now one entry in CONTACTS; calls route by targetId and run
+  // through the same disclosure policy when they connect.
+  return resolveCall(s, a.targetId);
 }
 
 export const EPISODE1: Episode = {
@@ -384,9 +376,7 @@ export const EPISODE1: Episode = {
     });
     state = characterEngine.initState(state, "chris");
     state = characterEngine.setMood(state, "chris", "guarded");
-    state.contacts = [
-      { id: "chris_phone", name: "Chris", phoneNumber: "—", reachable: false },
-    ];
+    state.contacts = defaultContacts();
     state.flags["ep1.started"] = true;
     state.quests["ep1.survive"] = {
       id: "ep1.survive",

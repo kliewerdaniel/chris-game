@@ -21,8 +21,19 @@ export interface NarrationContext {
   playerLocation: string;
   time: string;
   /** the engine-decided handling for this turn (truth/lie/withhold/etc). */
-  handling?: "truth" | "lie" | "withhold" | "unknown" | "narration";
+  handling?:
+    | "truth"
+    | "partial"
+    | "lie"
+    | "withhold"
+    | "deflect"
+    | "joke"
+    | "threaten"
+    | "unknown"
+    | "narration";
   lieText?: string;
+  /** pre-authored seed the model MUST render verbatim/paraphrase (fail-closed). */
+  seed?: string;
   topicLabel?: string;
   relevantMemories: { text: string; kind: string; source: string }[];
   discoveredEvidenceTitles?: string[];
@@ -75,6 +86,7 @@ export class Narrator {
     opts: {
       handling?: NarrationContext["handling"];
       lieText?: string;
+      seed?: string;
       topicLabel?: string;
       characterId?: string;
       discoveredEvidenceTitles?: string[];
@@ -97,6 +109,7 @@ export class Narrator {
       time: formatTime(state.time),
       handling: opts.handling,
       lieText: opts.lieText,
+      seed: opts.seed,
       topicLabel: opts.topicLabel,
       relevantMemories: memories,
       discoveredEvidenceTitles: opts.discoveredEvidenceTitles,
@@ -111,6 +124,17 @@ export class Narrator {
    * produces an invalid response."
    */
   async narrate(ctx: NarrationContext): Promise<NarrationOutcome> {
+    // FAIL-CLOSED: the model may only GENERATE prose when the engine has handed it
+    // a seed (lie/withhold/deflect/threaten/partial) OR this is pure narration.
+    // For unseeded disclose modes (truth/unknown with no seed), we never let the
+    // model invent world-canon — we fall back to the deterministic line. This is
+    // the epistemic boundary: the model renders, it does not author facts.
+    const discloseModes = ["truth", "lie", "withhold", "deflect", "threaten", "partial", "unknown"];
+    const needsSeed = discloseModes.includes(ctx.handling ?? "");
+    const hasSeed = !!(ctx.seed || ctx.lieText);
+    if (needsSeed && !hasSeed) {
+      return this.fallback(ctx, "no seed for disclose mode — fail closed");
+    }
     const userPrompt = this.renderPrompt(ctx);
     try {
       const result = await this.inference.chat({
@@ -154,10 +178,18 @@ export class Narrator {
         ctx.character ? `${ctx.character.name} is present (mood: ${ctx.characterMood ?? "neutral"}).` : "No character is present."
       }`
     );
-    if (ctx.handling === "lie" && ctx.lieText) {
-      parts.push(`HANDLING: lie. The character must say (paraphrase faithfully): "${ctx.lieText}"`);
+    if (ctx.handling === "lie" && (ctx.lieText || ctx.seed)) {
+      parts.push(`HANDLING: lie. The character must say (paraphrase faithfully): "${(ctx.seed ?? ctx.lieText) ?? ""}"`);
     } else if (ctx.handling === "withhold") {
       parts.push(`HANDLING: withhold. The character deflects and does NOT reveal the truth about "${ctx.topicLabel ?? "this"}".`);
+    } else if (ctx.handling === "partial") {
+      parts.push(`HANDLING: partial. The character reveals something but holds the deeper truth about "${ctx.topicLabel ?? "this"}".`);
+    } else if (ctx.handling === "deflect") {
+      parts.push(`HANDLING: deflect. The character steers away with a joke or subject change about "${ctx.topicLabel ?? "this"}".`);
+    } else if (ctx.handling === "threaten") {
+      parts.push(`HANDLING: threaten. The character becomes defensive and warns the player off "${ctx.topicLabel ?? "this"}".`);
+    } else if (ctx.handling === "joke") {
+      parts.push(`HANDLING: joke. The character defuses the moment with dark humor.`);
     } else if (ctx.handling === "truth") {
       parts.push(`HANDLING: truth. The character may speak about "${ctx.topicLabel ?? "this"}".`);
     }
@@ -172,12 +204,26 @@ export class Narrator {
 
   private fallback(ctx: NarrationContext, err: string): NarrationOutcome {
     let line: NarrationLine;
-    if (ctx.handling === "lie" && ctx.lieText) {
-      line = { speaker: "chris", text: ctx.lieText, status: "testimony" };
+    if (ctx.handling === "lie" && (ctx.seed || ctx.lieText)) {
+      line = { speaker: "chris", text: (ctx.seed ?? ctx.lieText)!, status: "testimony" };
     } else if (ctx.handling === "withhold") {
       line = {
         speaker: "chris",
         text: "Chris just shakes his head. \"Drop it, kid. Some things aren't yours to carry tonight.\"",
+        status: "testimony",
+      };
+    } else if (ctx.handling === "deflect") {
+      line = { speaker: "chris", text: "Chris shakes his head. \"We're not doing this right now, kid.\"", status: "testimony" };
+    } else if (ctx.handling === "threaten") {
+      line = {
+        speaker: "chris",
+        text: "Chris's voice goes flat. \"You push this and we're gonna have a problem. Drop it.\"",
+        status: "testimony",
+      };
+    } else if (ctx.handling === "partial") {
+      line = {
+        speaker: "chris",
+        text: "Chris gives you a sliver of the truth, and you can tell there's more he's not saying.",
         status: "testimony",
       };
     } else if (ctx.character) {

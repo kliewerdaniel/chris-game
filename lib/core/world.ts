@@ -31,6 +31,10 @@ export function createWorldState(opts: {
       knowsFactIds: [],
       withheld: [],
       flags: {},
+      beliefs: [],
+      goals: [],
+      askedTopics: {},
+      recentlyConfronted: false,
     };
   }
   return {

@@ -16,6 +16,7 @@ import { instantiateEvidence, markDiscovered, getEvidenceDef } from "../core/evi
 import { CHARACTERS } from "../characters/chris";
 import { characterEngine } from "../characters/engine";
 import { Episode, EpisodeContext, beat } from "../core/episode";
+import { resolveCall, contactsForEpisode } from "./contacts";
 
 /**
  * EPISODE 4 — THE REBUILD.
@@ -262,6 +263,8 @@ export const EPISODE4: Episode = {
         evidenceIds: [...carry.evidenceIds],
         knownFacts: [...new Set([...carry.knownFacts, ...state.knownFacts])],
       };
+      // Live contacts for this episode (Mother reachable in Ep4 too).
+      state = { ...state, contacts: contactsForEpisode("ep4") };
     }
     state.quests["ep4.understand"] = { id: "ep4.understand", title: "Decide what the reconstruction is", status: "active" };
     state.quests["ep4.grieve"] = { id: "ep4.grieve", title: "Keep Chris without mistaking the echo", status: "active" };
@@ -289,8 +292,12 @@ export const EPISODE4: Episode = {
         // "confront the reconstruction" = run it / challenge its memory
         return (s) => doRun(s);
       case "call":
-        // reuse verb: "run the model" can also be parsed as use; we map run via use
-        return (s) => doRun(s);
+        // "call mother/sarge" reaches the contact registry; a target-less or
+        // non-contact "call" is treated as running the reconstruction.
+        return (s, a) =>
+          a.targetId && (a.targetId === "mother" || a.targetId === "sarge")
+            ? resolveCall(s, a.targetId)
+            : doRun(s);
       case "move":
         return (s, a) => doMove(s, a);
       default:

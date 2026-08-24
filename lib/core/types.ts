@@ -44,6 +44,64 @@ export interface Provenance {
 }
 
 // ---------------------------------------------------------------------------
+// Character cognition — belief state, goals, and procedural disclosure.
+// A character is a BOUNDED AGENT: it perceives the world, holds beliefs,
+// pursues goals, and decides what to say via a deterministic policy. The LLM
+// only renders the resulting decision; it never decides or mutates state.
+// ---------------------------------------------------------------------------
+
+/** How a character chooses to answer a topic. Decided deterministically. */
+export type DisclosureMode =
+  | "truth" // says what it knows
+  | "partial" // reveals some, withholds the rest
+  | "lie" // asserts a seeded falsehood (anchored, never model-fabricated)
+  | "withhold" // refuses / changes the subject
+  | "deflect" // steers away with a joke or subject change
+  | "joke" // defuses via humor
+  | "threaten" // becomes defensive / warns
+  | "unknown"; // does not know and has nothing to hide
+
+export interface Belief {
+  id: string;
+  /** what the character believes. */
+  text: string;
+  /** 0..1 confidence in the belief. */
+  confidence: number;
+  source: "canonical" | "perception" | "testimony" | "memory" | "inference";
+  /** 0..1 — how much this belief matters to the character emotionally. */
+  emotionalWeight: number;
+  /** ids of facts/beliefs this belief supports. */
+  supports: string[];
+  /** ids of facts/beliefs this belief contradicts. */
+  contradicts: string[];
+  /** player-facing topic ids that, when asked, trigger this belief-driven response (optional). */
+  topics?: string[];
+  /** if this belief is a deliberate falsehood, the canonical fact it hides. */
+  lieAboutFactId?: string;
+}
+
+export interface Goal {
+  id: string;
+  text: string;
+  kind: "primary" | "secondary" | "hidden" | "constraint" | "emotional";
+  /** 0..1 — how hard the character pursues this. */
+  weight: number;
+  active: boolean;
+}
+
+/** The deterministic output of the disclosure policy for one topic. */
+export interface DisclosureDecision {
+  mode: DisclosureMode;
+  topic: string;
+  /** canonical fact a lie concerns (present only when mode === "lie"). */
+  lieAboutFactId?: string;
+  /** pre-authored wording the narrator MUST render (fail-closed). */
+  seed?: string;
+  /** human-readable reason — for debug and provenance trails. */
+  why: string;
+}
+
+// ---------------------------------------------------------------------------
 // World state
 // ---------------------------------------------------------------------------
 export type LocationId = string;
@@ -107,6 +165,8 @@ export interface WorldState {
   /** episode completion. */
   episodeComplete: boolean;
   endingId?: string;
+  /** deterministic world events already fired this playthrough (idempotency). */
+  firedEventIds?: string[];
 }
 
 export interface CharacterRuntimeState {
@@ -118,6 +178,14 @@ export interface CharacterRuntimeState {
   knowsFactIds: string[];
   /** topics/answers the character is currently refusing to discuss. */
   withheld: string[];
+  /** the character's live belief state (may diverge from canonical world). */
+  beliefs: Belief[];
+  /** the character's live objective stack. */
+  goals: Goal[];
+  /** how many times the player has asked each topic (pressure tracking). */
+  askedTopics: Record<string, number>;
+  /** set true briefly after a confront; decays on the next ask/turn. */
+  recentlyConfronted: boolean;
   /** flags for character-specific state (e.g. "contradicted_self"). */
   flags: Record<string, boolean | number | string>;
 }
@@ -249,6 +317,8 @@ export interface CharacterKnowledge {
   withholds: string[];
   /** facts the character holds a false belief about (id -> their false version). */
   misconceptions: Record<string, string>;
+  /** secret ids this character protects (gates disclosure + goal conflict). */
+  secrets?: string[];
 }
 
 export interface CharacterDef {
@@ -271,6 +341,10 @@ export interface CharacterDef {
   timeline: { date: string; event: string }[];
   memories: CharacterMemory[];
   knowledge: CharacterKnowledge;
+  /** live belief state (may diverge from canonical world). */
+  beliefs?: Belief[];
+  /** structured objective stack for the disclosure engine (optional). */
+  goalStack?: Goal[];
   /** baseline trust toward player at episode start. */
   baseTrust: number;
 }
