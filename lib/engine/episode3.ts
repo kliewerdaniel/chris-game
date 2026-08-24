@@ -160,7 +160,7 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
       ok: true,
       narration: [
         beat(
-          "You say it out loud: 'Last time I listened to you I could hardly get out of bed from the cramps. You're doing it now.' The feed pauses — a real pause, not a generated one — then says, gentle: 'I'm here, kid. That's all I am.' It does not understand. It cannot. It is only numbers."
+          "You say it out loud: 'Last time I listened to you I could hardly get out of bed from the cramps. You're doing it now.' The feed pauses — a real pause, not a generated one — then says, gentle: 'I'm here. That's all I am.' It does not understand. It cannot. It is only numbers."
         ),
       ],
       events: nextWithEvent.events,
@@ -248,7 +248,7 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
         ok: true,
         narration: [
           beat(
-            "You get to the edge of the bed and stand, legs trembling but holding. The feed says, 'There you go, kid.' You leave the room with the cramps easing and the voice still in your pocket, exactly where you put it."
+            "You get to the edge of the bed and stand, legs trembling but holding. The feed says, 'There you go.' You leave the room with the cramps easing and the voice still in your pocket, exactly where you put it."
           ),
         ],
         events: addEvent(s, { id: `ev_leave_${s.events.length}`, type: "leave", description: "Player got out of bed." }).events,

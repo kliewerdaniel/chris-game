@@ -112,8 +112,10 @@ abstract class BaseHttpProvider implements InferenceProvider {
       temperature: req.temperature ?? 0.7,
       max_tokens: maxTokens,
       stream: false,
-      // ornith.gguf is a reasoning model; disable thinking so the full token
-      // budget goes to the visible reply (otherwise it starves the spoken line).
+      // Reasoning models (gemma4, ornith) spend tokens on reasoning and can
+      // leave the visible reply blank unless thinking is disabled. Send both
+      // shapes so the request is honored regardless of the server build.
+      enable_thinking: false,
       chat_template_kwargs: { enable_thinking: false },
       stop: req.stop,
     };
@@ -130,10 +132,14 @@ abstract class BaseHttpProvider implements InferenceProvider {
       throw new Error(`${this.name} chat failed: ${res.status} ${await res.text().catch(() => "")}`);
     }
     const data = (await res.json()) as {
-      choices?: { message?: { content?: string; tool_calls?: any[] } }[];
+      choices?: { message?: { content?: string; reasoning_content?: string; tool_calls?: any[] } }[];
     };
-    const text = data.choices?.[0]?.message?.content ?? "";
-    const tcs = data.choices?.[0]?.message?.tool_calls;
+    const msg = data.choices?.[0]?.message;
+    // Some local models (gemma4, reasoning models) emit the visible reply in
+    // `reasoning_content` while leaving `content` empty. Fall back so Chris is
+    // never silently blank.
+    const text = msg?.content?.trim() || msg?.reasoning_content?.trim() || "";
+    const tcs = msg?.tool_calls;
     const toolCalls = Array.isArray(tcs)
       ? tcs.map((t: any) => ({
           name: t?.function?.name ?? "",
@@ -146,7 +152,10 @@ abstract class BaseHttpProvider implements InferenceProvider {
 
 export class LlamaCppProvider extends BaseHttpProvider {
   readonly name = "llama.cpp";
-  constructor(baseUrl = "http://127.0.0.1:8080", model = "ornith.gguf") {
+  constructor(
+    baseUrl = "http://127.0.0.1:8080",
+    model = process.env.CHRIS_LLAMACPP_MODEL ?? "gemma-4-26B-A4B-it-ultra-uncensored-heretic-Q4_K_M.gguf"
+  ) {
     super(baseUrl, model);
   }
 }
