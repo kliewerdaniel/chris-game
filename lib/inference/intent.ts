@@ -13,6 +13,10 @@ import { Intent, IntentVerb, GameAction } from "../core/types";
  */
 
 const VERB_PATTERNS: { verb: IntentVerb; words: string[]; starts?: boolean }[] = [
+  // ADR-005: free-form conversational turn. Placed FIRST so continuations like
+  // "go on" / "tell me more" / "keep going" / "say" / "chat" win over the bare
+  // `move` ("go") and `tell` verbs that would otherwise claim them at pos 0.
+  { verb: "chat", words: ["say", "chat", "tell him", "tell her", "i say", "i tell", "tell me more", "go on", "keep going"] },
   { verb: "help", words: ["help", "commands", "what can i do"], starts: true },
   { verb: "inventory", words: ["inventory", "what do i have", "what do i carry", "items"] },
   { verb: "evidence", words: ["evidence", "notebook", "case file", "show me the evidence"] },
@@ -21,15 +25,13 @@ const VERB_PATTERNS: { verb: IntentVerb; words: string[]; starts?: boolean }[] =
   { verb: "call", words: ["call", "dial", "text", "ring"] },
   { verb: "examine", words: ["examine", "look at", "read", "open", "study", "observe", "inspect", "check"] },
   { verb: "search", words: ["search", "rummage", "look through", "go through", "hunt for", "look for", "find"] },
-  { verb: "talk", words: ["talk", "speak", "chat", "say to", "say hi", "greet", "approach"] },
+  { verb: "talk", words: ["talk", "speak", "say to", "say hi", "greet", "approach"] },
   { verb: "ask", words: ["ask", "what happened", "tell me about", "do you know", "why", "who", "when", "where", "how"] },
   { verb: "move", words: ["go", "leave", "walk", "move", "exit", "enter", "head", "step", "close", "shut", "stop", "end"] },
   { verb: "use", words: ["use", "wield", "operate", "turn on", "switch on", "take", "grab", "pick up", "pocket"] },
   { verb: "look", words: ["look", "describe", "where am i", "what is around", "what's around", "what is here"] },
   { verb: "wait", words: ["wait", "sit", "pause", "hold on", "stand"] },
   { verb: "tell", words: ["tell", "let him know", "let her know", "inform"] },
-  // ADR-005: free-form conversational turn. "say"/"chat"/"tell him" map here.
-  { verb: "chat", words: ["say", "chat", "tell him", "tell her", "i say", "i tell"] },
 ];
 
 /** Position-based verb detection: choose the verb whose trigger word appears

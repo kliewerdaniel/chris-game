@@ -37,6 +37,13 @@ export interface NarrationContext {
   topicLabel?: string;
   relevantMemories: { text: string; kind: string; source: string }[];
   discoveredEvidenceTitles?: string[];
+  /** ADR-005: rolling window of recent exchanges (player + model lines) the riff loop reads. */
+  recentExchanges?: { speaker: string; text: string; handling?: string }[];
+  /** ADR-005: true for OPEN turns (truth/unknown) — model may riff freely;
+   *  false for BOUNDARY turns (lie/withhold/deflect/partial/threaten) — seed-locked. */
+  freeRiff?: boolean;
+  /** ADR-005: last ≤4 model response texts, for the uniqueness guard. */
+  recentlySaid?: string[];
   /** system instruction: voice + hard constraints. */
   systemInstruction: string;
 }
@@ -90,6 +97,10 @@ export class Narrator {
       topicLabel?: string;
       characterId?: string;
       discoveredEvidenceTitles?: string[];
+      /** ADR-005: pass the rolling exchange window (already sliced by caller). */
+      recentExchanges?: NarrationContext["recentExchanges"];
+      freeRiff?: boolean;
+      recentlySaid?: string[];
     } = {}
   ): NarrationContext {
     const def = opts.characterId ? CHARACTERS[opts.characterId] : undefined;
@@ -113,6 +124,9 @@ export class Narrator {
       topicLabel: opts.topicLabel,
       relevantMemories: memories,
       discoveredEvidenceTitles: opts.discoveredEvidenceTitles,
+      recentExchanges: opts.recentExchanges,
+      freeRiff: opts.freeRiff,
+      recentlySaid: opts.recentlySaid,
       systemInstruction: buildSystemInstruction(def),
     };
   }
@@ -130,11 +144,20 @@ export class Narrator {
     // model invent world-canon — we fall back to the deterministic line. This is
     // the epistemic boundary: the model renders, it does not author facts.
     const discloseModes = ["truth", "lie", "withhold", "deflect", "threaten", "partial", "unknown"];
-    const needsSeed = discloseModes.includes(ctx.handling ?? "");
+    // Boundary modes (lie/withhold/deflect/threaten/partial) MUST carry a seed —
+    // the model only paraphrases the engine's fixed wording so the emotional core
+    // can't drift. OPEN modes (truth/unknown) without a seed are ADR-005 free-riff
+    // turns: the model improvises in voice (it still cannot author world-canon,
+    // because there is no canon to assert — these are banter/news riffs).
+    const boundaryModes = ["lie", "withhold", "deflect", "threaten", "partial"];
+    const needsSeed = boundaryModes.includes(ctx.handling ?? "");
     const hasSeed = !!(ctx.seed || ctx.lieText);
     if (needsSeed && !hasSeed) {
-      return this.fallback(ctx, "no seed for disclose mode — fail closed");
+      return this.fallback(ctx, "no seed for boundary disclose mode — fail closed");
     }
+    // ADR-005: open (free-riff) turns get a higher temperature so repeated asks
+    // ("say something about the news") produce a genuinely different line each time.
+    const temperature = ctx.freeRiff ? 0.9 : 0.6;
     const userPrompt = this.renderPrompt(ctx);
     try {
       const result = await this.inference.chat({
@@ -142,10 +165,27 @@ export class Narrator {
           { role: "system", content: ctx.systemInstruction },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.6,
+        temperature,
         maxTokens: 400,
       });
-      const text = this.validateOutput(result.text, ctx);
+      let text = this.validateOutput(result.text, ctx);
+      // ADR-005 uniqueness guard: if the model echoed a recent line, ask once more
+      // for a different angle before giving up.
+      if (ctx.freeRiff && ctx.recentlySaid && ctx.recentlySaid.length) {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const repeated = ctx.recentlySaid.some((p) => norm(p) === norm(text));
+        if (repeated) {
+          const retry = await this.inference.chat({
+            messages: [
+              { role: "system", content: ctx.systemInstruction },
+              { role: "user", content: userPrompt + "\n\n(That was a repeat. Say something genuinely different this time.)" },
+            ],
+            temperature: 1.0,
+            maxTokens: 400,
+          });
+          text = this.validateOutput(retry.text, ctx);
+        }
+      }
       return {
         lines: [{ speaker: ctx.character ? "chris" : "narrator", text, status: ctx.handling === "lie" ? "testimony" : "canonical" }],
         usedModel: !result.simulated,
@@ -178,6 +218,24 @@ export class Narrator {
         ctx.character ? `${ctx.character.name} is present (mood: ${ctx.characterMood ?? "neutral"}).` : "No character is present."
       }`
     );
+    // ADR-005: riff-loop exchange window. Lets the model reference prior lines
+    // ("more like that") without mutating world state.
+    if (ctx.recentExchanges && ctx.recentExchanges.length) {
+      const lastLines = ctx.recentExchanges
+        .slice(-6)
+        .map((e) => `- ${e.speaker}${e.handling ? ` [${e.handling}]` : ""}: ${e.text}`)
+        .join("\n");
+      parts.push(`RECENT EXCHANGES (continuity only — do not repeat these verbatim):\n${lastLines}`);
+    }
+    if (ctx.freeRiff) {
+      parts.push(
+        `MODE: free riff. You may improvise naturally in voice. Do NOT repeat a previous response: ${
+          ctx.recentlySaid && ctx.recentlySaid.length
+            ? "avoid these recent lines: " + ctx.recentlySaid.map((s) => `"${s}"`).join("; ")
+            : "keep it fresh."
+        }`
+      );
+    }
     if (ctx.handling === "lie" && (ctx.lieText || ctx.seed)) {
       parts.push(`HANDLING: lie. The character must say (paraphrase faithfully): "${(ctx.seed ?? ctx.lieText) ?? ""}"`);
     } else if (ctx.handling === "withhold") {

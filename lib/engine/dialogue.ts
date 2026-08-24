@@ -1,6 +1,7 @@
 import { WorldState, GameAction, Exchange, DisclosureMode, ActionResult, NarrationLine } from "../core/types";
 import { characterEngine } from "../characters/engine";
 import { topicToLabel } from "./topic-label";
+import { resolveTargetTopicFromText } from "../inference/intent";
 
 /**
  * ADR-005 — shared conversational riff resolver.
@@ -77,7 +78,15 @@ export function resolveChat(
     };
   }
 
-  const topic = action.topicId ?? "general";
+  // ADR-005/5D: offline topic enrichment (fail-closed). If the rule parser
+  // didn't already bind a topic, try a second deterministic pass over the raw
+  // text so "what do you think about the news" maps to `feed` without needing
+  // the model. Falls back to `general` (open riff) if nothing matches.
+  const topicFromAction = action.topicId;
+  const topicFromText = topicFromAction
+    ? undefined
+    : resolveTargetTopicFromText(action.raw, "chat").topicId;
+  const topic = topicFromAction ?? topicFromText ?? "general";
   const topicLabel = topicToLabel(topic);
 
   const decision = characterEngine.resolveDisclosure(state, CHAT_CHARACTER, topic, "talk");

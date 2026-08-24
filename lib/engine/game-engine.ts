@@ -1,4 +1,4 @@
-import { WorldState, GameAction, ActionResult, NarrationLine } from "../core/types";
+import { WorldState, GameAction, ActionResult, NarrationLine, DisclosureMode } from "../core/types";
 import {
   serializeWorldState,
   deserializeWorldState,
@@ -10,6 +10,7 @@ import { CharacterEngine, characterEngine } from "../characters/engine";
 import { Retrieval, buildRetrievalFromMemories } from "../retrieval/retrieval";
 import { Narrator } from "../narrative/narrator";
 import { InferenceManager } from "../inference/provider";
+import { recordModelLine, recentExchangesFor, pushRecentlySaid, isBoundaryMode } from "./dialogue";
 import { parseAction, isConfident, RESOLVABLE_TARGET_IDS, RESOLVABLE_TOPIC_IDS } from "../inference/intent";
 import { resolveIntentWithLLM, AllowedActions, ALL_VERBS } from "../inference/llm-intent";
 import { Episode, EpisodeContext } from "../core/episode";
@@ -157,8 +158,9 @@ export class GameEngine {
     if (result.ok) {
       const needsVoice = ["talk", "ask", "confront", "chat"].includes(action.type);
       if (needsVoice || result.narration.length === 0) {
-        const nar = await this.generateNarration(next, action, result);
-        result = { ...result, narration: nar };
+        const { lines, state: voiced } = await this.generateNarration(next, action, result);
+        next = voiced;
+        result = { ...result, narration: lines };
       }
     }
 
@@ -171,7 +173,7 @@ export class GameEngine {
         state: WorldState,
         action: GameAction,
         result: ActionResult
-      ): Promise<NarrationLine[]> => this.generateNarration(state, action, result),
+      ): Promise<NarrationLine[]> => (await this.generateNarration(state, action, result)).lines,
     };
   }
 
@@ -180,26 +182,21 @@ export class GameEngine {
     state: WorldState,
     action: GameAction,
     result: ActionResult
-  ): Promise<NarrationLine[]> {
-    const handling = (result.stateChanges as any)?.handling as
-      | "truth"
-      | "lie"
-      | "withhold"
-      | "unknown"
-      | "testimony"
-      | "narration"
-      | undefined;
+  ): Promise<{ lines: NarrationLine[]; state: WorldState }> {
+    const handling = (result.stateChanges as any)?.handling as DisclosureMode | undefined;
     const lieAbout = (result.stateChanges as any)?.lieAbout as string | undefined;
     const speaker = (result.stateChanges as any)?.speaker as string | undefined;
     const seed = (result.stateChanges as any)?.seed as string | undefined;
     const topicLabel = (result as any).topicLabel as string | undefined;
 
-    if (!["talk", "ask", "confront", "chat"].includes(action.type)) return result.narration;
+    if (!["talk", "ask", "confront", "chat"].includes(action.type)) {
+      return { lines: result.narration, state };
+    }
 
     // Determine which character voices this turn.
     let characterId: string | undefined;
     if (action.targetId === "chris" || action.targetId === "reconstruction" || action.targetId === "model") {
-      characterId = action.targetId === "chris" ? "chris" : "chris"; // voiced via CHRIS def for now
+      characterId = "chris";
     } else if (action.type === "confront") {
       characterId = "chris";
     }
@@ -216,11 +213,26 @@ export class GameEngine {
       topicLabel,
       characterId,
       discoveredEvidenceTitles: state.evidenceIds,
+      // ADR-005: chat turns read the rolling exchange window + uniqueness ring.
+      recentExchanges: action.type === "chat" ? recentExchangesFor(state) : undefined,
+      freeRiff: action.type === "chat" ? !isBoundaryMode(handling) : false,
+      recentlySaid: action.type === "chat" ? state.characterStates["chris"]?.recentlySaid ?? [] : undefined,
     });
     const outcome = await this.deps.narrator.narrate(ctx);
+    // ADR-005: persist the model's line into the rolling log + uniqueness ring
+    // so the next riff turn has continuity. State side-effect only (no facts).
+    const modelText = outcome.lines.map((l) => l.text).join(" ");
+    let nextState = state;
+    if (action.type === "chat" && modelText) {
+      nextState = recordModelLine(nextState, { text: modelText, speaker: "chris", handling });
+      nextState = pushRecentlySaid(nextState, "chris", modelText);
+    }
     // Tag reconstruction replies as testimony/rumor, never canonical Chris.
     const speakerName = speaker === "reconstruction" ? "reconstruction" : characterId ?? "chris";
-    return [...result.narration, ...outcome.lines.map((l) => ({ ...l, speaker: speakerName as any }))];
+    return {
+      lines: [...result.narration, ...outcome.lines.map((l) => ({ ...l, speaker: speakerName as any }))],
+      state: nextState,
+    };
   }
 }
 
