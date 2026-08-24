@@ -18,6 +18,7 @@ export function createWorldState(opts: {
   playerName?: string;
   startLocation: LocationId;
   characterIds: CharacterId[];
+  episodeId?: string;
 }): WorldState {
   const now = { day: 1, hour: 22, minute: 14 };
   const characterStates = {} as WorldState["characterStates"];
@@ -54,6 +55,7 @@ export function createWorldState(opts: {
     events: [],
     evidenceIds: [],
     characterStates,
+    episodeId: opts.episodeId ?? "ep1",
     progression: 0,
     episodeComplete: false,
   };

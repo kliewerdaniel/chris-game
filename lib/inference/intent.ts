@@ -23,7 +23,7 @@ const VERB_PATTERNS: { verb: IntentVerb; words: string[]; starts?: boolean }[] =
   { verb: "search", words: ["search", "rummage", "look through", "go through", "hunt for", "look for", "find"] },
   { verb: "talk", words: ["talk", "speak", "chat", "say to", "say hi", "greet", "approach"] },
   { verb: "ask", words: ["ask", "what happened", "tell me about", "do you know", "why", "who", "when", "where", "how"] },
-  { verb: "move", words: ["go", "leave", "walk", "move", "exit", "enter", "head", "step"] },
+  { verb: "move", words: ["go", "leave", "walk", "move", "exit", "enter", "head", "step", "close", "shut", "stop", "end"] },
   { verb: "use", words: ["use", "wield", "operate", "turn on", "switch on", "take", "grab", "pick up", "pocket"] },
   { verb: "look", words: ["look", "describe", "where am i", "what is around", "what's around", "what is here"] },
   { verb: "wait", words: ["wait", "sit", "pause", "hold on", "stand"] },
@@ -53,21 +53,29 @@ const TARGET_PATTERNS: { id: string; names: string[] }[] = [
   { id: "mother", names: ["mother", "mom", "ma", "mum"] },
   { id: "phone", names: ["phone", "cell", "mobile", "cellphone"] },
   { id: "apartment", names: ["apartment", "room", "flat", "place", "home"] },
-  { id: "note", names: ["note", "paper", "letter", "page"] },
+  { id: "note", names: ["note", "paper", "letter", "page", "envelope"] },
   { id: "photo", names: ["photo", "picture", "image", "polaroid"] },
-  { id: "bottle", names: ["bottle", "bottles", "drink", "empties"] },
+  { id: "bottle", names: ["bottle", "bottles", "drink", "empties", "pill", "pills", "medication", "medicine"] },
   { id: "door", names: ["door", "exit", "outside"] },
+  { id: "axe", names: ["axe", "ax", "hatchet", "woodpile", "wood"] },
+  { id: "radio", names: ["radio", "weather"] },
+  { id: "treeline", names: ["treeline", "woods", "trees", "road", "cabin"] },
+  { id: "laptop", names: ["laptop", "computer", "screen", "model", "reconstruction", "output", "log"] },
+  { id: "discharge", names: ["discharge", "envelope", "paper"] },
 ];
 
 const TOPIC_PATTERNS: { id: string; keys: string[] }[] = [
   { id: "sarge", keys: ["sarge", "serge", "the body", "his death", "what happened", "dead"] },
   { id: "sarge_fine", keys: ["argument", "fight", "trouble", "fine", "okay between"] },
   { id: "money", keys: ["money", "debt", "owe", "owed", "cash", "bill"] },
-  { id: "mother", keys: ["mother", "mom", "ma", "mum"] },
+  { id: "mother", keys: ["mother", "mom", "mum"] },
   { id: "note", keys: ["note", "paper", "letter", "what you wrote"] },
   { id: "the night", keys: ["last night", "tonight", "where you were", "what you did"] },
-  { id: "marine", keys: ["marine", "military", "war", "service", "army"] },
+  { id: "marine", keys: ["marine", "military", "war", "service", "army", "corps", "discharge"] },
   { id: "cats", keys: ["captain", "cat", "cats", "alien cats"] },
+  { id: "memory", keys: ["remember", "memory", "memories", "really him"] },
+  { id: "voice", keys: ["voice", "really him", "is it you"] },
+  { id: "debt", keys: ["debt", "owe", "owed", "money"] },
 ];
 
 function matchFirst<T extends { re?: RegExp } & Record<string, any>>(

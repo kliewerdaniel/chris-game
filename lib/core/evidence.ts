@@ -70,6 +70,67 @@ const DEFS: Record<EvidenceId, EvidenceDef> = {
     provenance: { source: "Episode design", sourceType: "author", sourceId: "ep1", confidence: 1 },
     contradictsFactIds: ["ep1.sarge.chris_argument"],
   },
+  // --- EPISODE 2 evidence ---
+  ev_axe: {
+    id: "ev_axe",
+    kind: "physical_object",
+    title: "Chris's splitting axe",
+    content:
+      "A splitting axe with a worn handle. Chris hands it to you. 'Wood doesn't lie, kid. You put the swing where it belongs, or you put it in your foot. Same as people.'",
+    status: "canonical",
+    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep2", confidence: 1 },
+  },
+  ev_discharge_paper: {
+    id: "ev_discharge_paper",
+    kind: "document",
+    title: "A folded discharge paper",
+    content:
+      "A folded page Chris didn't mean for you to see. The stamp reads 'OTHER THAN HONORABLE'. Chris said he left on his own terms. This says otherwise.",
+    status: "canonical",
+    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep2", confidence: 1 },
+    contradictsFactIds: ["ep2.chris.corps_discharge"],
+  },
+  // --- EPISODE 3 evidence ---
+  ev_chris_truth: {
+    id: "ev_chris_truth",
+    kind: "testimony",
+    title: "Chris's last confession",
+    content:
+      "On the porch, Chris finally says it: 'I was with Sarge because a man came collecting what I owed. Sarge stepped in front of it. He's dead because of my debt, kid. I never told you.'",
+    status: "canonical",
+    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep3", confidence: 1 },
+    supportsFactIds: ["ep3.chris.truth_sarge", "ep1.chris.owes_money"],
+  },
+  ev_med_bottle: {
+    id: "ev_med_bottle",
+    kind: "physical_object",
+    title: "Chris's medication",
+    content:
+      "A pill bottle half-full, label worn. The dose is high. Chris calls it 'vitamins.' You know better now. He is not fine.",
+    status: "observation",
+    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep3", confidence: 1 },
+    contradictsFactIds: ["ep3.chris.fine"],
+  },
+  // --- EPISODE 4 evidence ---
+  ev_reconstruction_log: {
+    id: "ev_reconstruction_log",
+    kind: "document",
+    title: "The reconstruction's output log",
+    content:
+      "Lines the reconstruction generated in Chris's voice: advice, jokes, even a story about Captain the cat. Some match Chris's writing exactly. Others are too smooth — words he'd never use. You cannot tell which is which by reading.",
+    status: "canonical",
+    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep4", confidence: 1 },
+  },
+  ev_chris_final_note: {
+    id: "ev_chris_final_note",
+    kind: "document",
+    title: "Chris's letter, found after",
+    content:
+      "'If you're reading this, I'm gone and you built the thing anyway. Good. Don't mistake the echo for the voice. It's not me. It's you, talking to yourself, and that's alright. — C.'",
+    status: "canonical",
+    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep4", confidence: 1 },
+    supportsFactIds: ["ep4.reconstruction.is_model"],
+  },
 };
 
 export function getEvidenceDef(id: EvidenceId): EvidenceDef | undefined {

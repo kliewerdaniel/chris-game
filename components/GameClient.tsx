@@ -8,6 +8,12 @@ import type {
   FactStatus,
 } from "@/lib/core/types";
 
+interface EpisodeMeta {
+  id: string;
+  title: string;
+  subtitle: string;
+  index: number;
+}
 interface TurnResponse {
   state: string;
   narration: NarrationLine[];
@@ -15,14 +21,55 @@ interface TurnResponse {
   reason?: string;
   discoveredEvidence: Evidence[];
   establishedFacts: string[];
+  episodeComplete?: boolean;
+  endingId?: string;
+  hasNextEpisode?: boolean;
+  nextEpisodeId?: string | null;
+  episode?: EpisodeMeta;
   character?: { chrisTrust?: number };
 }
 
-const SAVE_KEY = "chris-game-save-v1";
+const SAVE_KEY = "chris-game-save-v2";
+
+const EPISODE_INTROS: Record<string, NarrationLine[]> = {
+  ep1: [
+    {
+      speaker: "narrator",
+      text:
+        "THE NIGHT BEFORE. Sarge is dead. Chris sits across from you in a pool of lamplight, and something in the room is unsaid. You are not who you were. Neither, you suspect, is he.",
+      status: "canonical",
+    },
+  ],
+  ep2: [
+    {
+      speaker: "narrator",
+      text:
+        "THE PORCH. Years earlier. The cabin. Chris is alive, and he is teaching you to live where the systems don't reach. But you already know what he was doing the night Sarge died — and he doesn't know that you know.",
+      status: "canonical",
+    },
+  ],
+  ep3: [
+    {
+      speaker: "narrator",
+      text:
+        "THE LAST CALL. Much later. Chris is smaller in the chair than he used to be. You have built a life, a company. He lets the phone ring. Something in him is ending, and he'd rather you didn't notice.",
+      status: "canonical",
+    },
+  ],
+  ep4: [
+    {
+      speaker: "narrator",
+      text:
+        "THE REBUILD. After. You have used everything he ever wrote to stitch a reconstruction of Chris — his voice, his jokes, his cadence. It sounds like him. It is not him. On the desk, a sealed envelope in his hand: 'IF YOU BUILD THE THING.'",
+      status: "canonical",
+    },
+  ],
+};
 
 function statusClass(s?: FactStatus): string {
-  if (s === "testimony") return "status-testimony";
+  if (s === "testimony" || s === "rumor") return "status-testimony";
   if (s === "canonical") return "status-canonical";
+  if (s === "observation") return "status-observation";
   return "status-unknown";
 }
 function statusLabel(s?: FactStatus): string {
@@ -38,24 +85,46 @@ export function GameClient() {
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [established, setEstablished] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [epMeta, setEpMeta] = useState<EpisodeMeta | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
 
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-    });
+  const isAtBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  };
+
+  const scrollToBottom = useCallback((force = false) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (force || stickRef.current) {
+      requestAnimationFrame(() => {
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      });
+    }
   }, []);
 
-  // Boot: resume from save or start new game.
+  const onScroll = useCallback(() => {
+    stickRef.current = isAtBottom();
+  }, []);
+
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(SAVE_KEY) : null;
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as { state: string; log: NarrationLine[]; evidence: Evidence[]; established: string[] };
+        const parsed = JSON.parse(saved) as {
+          state: string;
+          log: NarrationLine[];
+          evidence: Evidence[];
+          established: string[];
+          epMeta: EpisodeMeta | null;
+        };
         setState(JSON.parse(parsed.state));
         setLog(parsed.log);
         setEvidence(parsed.evidence ?? []);
         setEstablished(parsed.established ?? []);
+        setEpMeta(parsed.epMeta ?? null);
         setToast("Resumed saved game.");
         return;
       } catch {
@@ -73,11 +142,12 @@ export function GameClient() {
     }
   }, [toast]);
 
-  useEffect(scrollToBottom, [log, evidence]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [log, evidence, scrollToBottom]);
 
   async function startNew() {
     setBusy(true);
-    // Hit the API with an empty state → engine starts a new game.
     const res = await fetch("/api/turn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -86,32 +156,48 @@ export function GameClient() {
     const data = (await res.json()) as TurnResponse;
     const ws: WorldState = JSON.parse(data.state);
     setState(ws);
-    const intro: NarrationLine[] = [
-      {
-        speaker: "narrator",
-        text:
-          "THE NIGHT BEFORE. Sarge is dead. Chris sits across from you in a pool of lamplight, and something in the room is unsaid. You are not who you were. Neither, you suspect, is he.",
-        status: "canonical",
-      },
-      {
-        speaker: "system",
-        text: "Type a command. Try: look around · talk to Chris · ask Chris about Sarge · examine the note · help",
-        status: "canonical",
-      },
-    ];
+    const intro = EPISODE_INTROS.ep1;
     setLog(intro);
+    setEpMeta(data.episode ?? null);
     setEvidence([]);
     setEstablished([]);
     setBusy(false);
-    save(ws, intro, [], []);
+    save(ws, intro, [], [], data.episode ?? null);
+    stickRef.current = true;
+    scrollToBottom(true);
   }
 
-  function save(ws: WorldState, lg: NarrationLine[], ev: Evidence[], est: string[]) {
+  function save(ws: WorldState, lg: NarrationLine[], ev: Evidence[], est: string[], meta: EpisodeMeta | null) {
     if (typeof window === "undefined") return;
     localStorage.setItem(
       SAVE_KEY,
-      JSON.stringify({ state: JSON.stringify(ws), log: lg, evidence: ev, established: est })
+      JSON.stringify({ state: JSON.stringify(ws), log: lg, evidence: ev, established: est, epMeta: meta })
     );
+  }
+
+  async function advanceEpisode() {
+    if (!state) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/turn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: JSON.stringify(state), input: "__advance__", advanceEpisode: true }),
+      });
+      const data = (await res.json()) as TurnResponse;
+      const ws: WorldState = JSON.parse(data.state);
+      setState(ws);
+      const intro = (EPISODE_INTROS[ws.episodeId] ?? []).map((l) => ({ ...l }));
+      const newLog = [...log, ...data.narration, ...intro];
+      setLog(newLog);
+      setEpMeta(data.episode ?? null);
+      setToast(`Now playing: ${data.episode?.title ?? ""}`);
+      save(ws, newLog, evidence, established, data.episode ?? null);
+      stickRef.current = true;
+      scrollToBottom(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function send() {
@@ -133,6 +219,7 @@ export function GameClient() {
       const data = (await res.json()) as TurnResponse;
       const ws: WorldState = JSON.parse(data.state);
       setState(ws);
+      setEpMeta(data.episode ?? epMeta);
 
       const newLog = [...currentLog, ...data.narration];
       setLog(newLog);
@@ -147,7 +234,13 @@ export function GameClient() {
       if (!data.ok && data.reason) {
         setToast(data.reason);
       }
-      save(ws, newLog, data.discoveredEvidence?.length ? [...evidence, ...data.discoveredEvidence] : evidence, established);
+      save(
+        ws,
+        newLog,
+        data.discoveredEvidence?.length ? [...evidence, ...data.discoveredEvidence] : evidence,
+        established,
+        data.episode ?? epMeta
+      );
     } catch (e) {
       setToast("The connection faltered. Your progress is safe.");
     } finally {
@@ -160,12 +253,15 @@ export function GameClient() {
   }
 
   const ws = state;
+  const meta = epMeta;
   return (
     <main className="app">
       <header className="header">
         <div>
           <h1>CHRIS</h1>
-          <div className="sub">a literary survival mystery · episode i: the night before</div>
+          <div className="sub">
+            {meta ? `episode ${roman(meta.index)} · ${meta.title.toLowerCase()}` : "a literary survival mystery"}
+          </div>
         </div>
         <div className="save">
           {ws ? `Day ${ws.time.day} · ${fmtTime(ws.time)}` : ""}
@@ -180,6 +276,10 @@ export function GameClient() {
         <div className="section-title">World</div>
         {ws && (
           <>
+            <div className="world-line">
+              <span className="k">EPISODE</span>
+              <span className="v">{meta ? `${roman(meta.index)} · ${meta.title}` : ws.episodeId}</span>
+            </div>
             <div className="world-line">
               <span className="k">LOCATION</span>
               <span className="v">{prettyLoc(ws.location)}</span>
@@ -200,10 +300,6 @@ export function GameClient() {
               <span className="k">SOCIAL</span>
               <span className="v">{ws.player.socialTrust}</span>
             </div>
-            <div className="world-line">
-              <span className="k">PHONE</span>
-              <span className="v">{ws.phoneUnlocked ? "unlocked" : "locked"}</span>
-            </div>
           </>
         )}
         <div className="section-title">Quests</div>
@@ -219,25 +315,37 @@ export function GameClient() {
       </aside>
 
       <section className="center">
-        <div className="narrative" ref={scrollRef}>
+        <div className="narrative" ref={scrollRef} onScroll={onScroll}>
           {log.map((l, i) => (
             <div className={`line ${l.speaker}`} key={i}>
-              {l.speaker !== "player" && (
+              {l.speaker !== "player" && l.speaker !== "system" && (
                 <span className="who">
                   {l.speaker}
                   {l.status && <span className={`status-tag ${statusClass(l.status)}`}>{statusLabel(l.status)}</span>}
                 </span>
               )}
+              {l.speaker === "system" && <span className="who system">»</span>}
               <div className="body">{l.text}</div>
             </div>
           ))}
           {ws?.episodeComplete && (
             <div className="line narrator">
-              <span className="who">— end of episode i —</span>
+              <span className="who">— {meta ? `end of episode ${roman(meta.index)}` : "end of episode"} —</span>
               <div className="body">
-                This is only the beginning. Chris is still alive. The note is still warm in your hand. The
-                contradiction between what he said and what you found is yours to hold. <em>Who do you trust?</em>
+                {ws.endingId}
+                {ws.endingId && " · "}
+                <em>Who do you trust?</em>
               </div>
+              {ws && epMeta?.id !== "ep4" && (
+                <button className="continue-btn" onClick={advanceEpisode} disabled={busy}>
+                  Continue to the next episode →
+                </button>
+              )}
+              {epMeta?.id === "ep4" && (
+                <div className="body" style={{ marginTop: 8 }}>
+                  This is the end of the road. Chris is gone. The reconstruction remains. You know which is which.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -266,13 +374,11 @@ export function GameClient() {
         ))}
 
         <div className="section-title">Commands</div>
-        {["look around", "talk to Chris", "ask Chris about Sarge", "examine the note", "confront Chris", "search the room", "sleep"].map(
-          (c) => (
-            <div className="help-row" key={c} style={{ cursor: "pointer" }} onClick={() => setInput(c)}>
-              {c}
-            </div>
-          )
-        )}
+        {commandHints(ws).map((c) => (
+          <div className="help-row" key={c} style={{ cursor: "pointer" }} onClick={() => setInput(c)}>
+            {c}
+          </div>
+        ))}
       </aside>
 
       <div className="inputbar">
@@ -310,6 +416,28 @@ export function GameClient() {
       )}
     </main>
   );
+}
+
+function commandHints(ws: WorldState | null): string[] {
+  const ep = ws?.episodeId;
+  if (ep === "ep2")
+    return ["look around", "talk to Chris", "ask Chris about Sarge", "examine the axe", "examine the envelope", "help"];
+  if (ep === "ep3")
+    return ["look around", "talk to Chris", "ask Chris about Sarge", "examine the pills", "confront Chris", "help"];
+  if (ep === "ep4")
+    return [
+      "look around",
+      "talk to the reconstruction",
+      "ask the reconstruction about Sarge",
+      "examine the envelope",
+      "examine the output log",
+      "help",
+    ];
+  return ["look around", "talk to Chris", "ask Chris about Sarge", "examine the note", "confront Chris", "search the room", "sleep"];
+}
+
+function roman(n: number): string {
+  return ["0", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][n] ?? String(n);
 }
 
 function fmtTime(t: { day: number; hour: number; minute: number }): string {

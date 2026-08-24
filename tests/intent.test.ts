@@ -65,4 +65,17 @@ describe("Intent parser (deterministic, no LLM)", () => {
     const a = parseAction("angrily confront Chris");
     expect(a.intent.modifiers).toContain("angrily");
   });
+
+  it("parses 'ask Chris about the Marines' as marine topic, not mother", () => {
+    const a = parseAction("ask Chris about the Marines");
+    expect(a.type).toBe("ask");
+    expect(a.targetId).toBe("chris");
+    expect(a.topicId).toBe("marine");
+  });
+
+  it("still parses 'ask Chris about mother' as mother topic", () => {
+    const a = parseAction("ask Chris about his mother");
+    expect(a.topicId).toBe("mother");
+  });
 });
+

@@ -70,7 +70,9 @@ body::before {
   gap: 1px;
   max-width: var(--maxw);
   margin: 0 auto;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--border-soft);
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
@@ -111,6 +113,7 @@ body::before {
   padding: 18px 16px;
   border-right: 1px solid var(--border);
   font-size: 14px;
+  overflow-y: auto;
 }
 .panel-right {
   grid-area: right;
@@ -124,7 +127,7 @@ body::before {
   grid-area: center;
   background: var(--bg);
   padding: 26px 30px;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -172,6 +175,9 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
 }
 .line {
   max-width: 64ch;

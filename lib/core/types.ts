@@ -100,6 +100,8 @@ export interface WorldState {
   evidenceIds: EvidenceId[];
   /** per-character mutable state (trust, location, emotional state, flags). */
   characterStates: Record<CharacterId, CharacterRuntimeState>;
+  /** which episode this playthrough is currently inside. */
+  episodeId: string;
   /** story progression marker. */
   progression: number;
   /** episode completion. */
