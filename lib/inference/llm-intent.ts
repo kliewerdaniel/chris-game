@@ -134,20 +134,20 @@ export async function resolveIntentWithLLM(
   const verb = normalizeId(args.verb) as IntentVerb | undefined;
   if (!verb || !allowed.verbs.includes(verb as IntentVerb)) return null;
 
-  // The model is a weak id resolver — re-derive ids from rules, then keep the
-  // model's value only if it is a valid allowed id; otherwise use the rule value.
-  const rule = resolveTargetTopicFromText(raw);
+  // The model is a weak id resolver — prefer the RULE-DERIVED id (deterministic
+  // and world-aware) over the model's value, and only accept the model's id
+  // when it is a valid allowed id AND the rule pass is silent. The rule pass is
+  // verb-aware (suppresses character names for object verbs) so a name embedded
+  // in an object description (e.g. "examine the letter Chris left") doesn't
+  // hijack the target.
+  const rule = resolveTargetTopicFromText(raw, verb);
   const modelTarget = normalizeId(args.targetId);
   const modelTopic = normalizeId(args.topicId);
 
   const targetId =
-    modelTarget && allowed.targetIds.includes(modelTarget)
-      ? modelTarget
-      : (rule.targetId ?? (modelTarget ?? undefined));
+    rule.targetId ?? (modelTarget && allowed.targetIds.includes(modelTarget) ? modelTarget : undefined);
   const topicId =
-    modelTopic && allowed.topicIds.includes(modelTopic)
-      ? modelTopic
-      : (rule.topicId ?? (modelTopic ?? undefined));
+    rule.topicId ?? (modelTopic && allowed.topicIds.includes(modelTopic) ? modelTopic : undefined);
 
   return {
     intent: { verb, target: targetId, topic: topicId },

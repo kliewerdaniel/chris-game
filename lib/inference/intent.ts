@@ -53,14 +53,14 @@ const TARGET_PATTERNS: { id: string; names: string[] }[] = [
   { id: "mother", names: ["mother", "mom", "ma", "mum"] },
   { id: "phone", names: ["phone", "cell", "mobile", "cellphone"] },
   { id: "apartment", names: ["apartment", "room", "flat", "place", "home"] },
-  { id: "note", names: ["note", "paper", "letter", "page", "envelope"] },
+  { id: "note", names: ["note", "paper", "letter", "page", "envelope", "envelope in my pocket", "the note"] },
   { id: "photo", names: ["photo", "picture", "image", "polaroid"] },
   { id: "bottle", names: ["bottle", "bottles", "drink", "empties", "pill", "pills", "medication", "medicine"] },
   { id: "door", names: ["door", "exit", "outside"] },
   { id: "axe", names: ["axe", "ax", "hatchet", "woodpile", "wood"] },
   { id: "radio", names: ["radio", "weather"] },
   { id: "treeline", names: ["treeline", "woods", "trees", "road", "cabin"] },
-  { id: "laptop", names: ["laptop", "computer", "screen", "model", "reconstruction", "output", "log"] },
+  { id: "laptop", names: ["laptop", "computer", "screen", "model", "output", "log"] },
   { id: "discharge", names: ["discharge", "envelope", "paper"] },
 ];
 
@@ -153,22 +153,39 @@ export function isConfident(action: GameAction): boolean {
   }
   if (action.type === "confront") return true;
   if (action.type === "call") return !!action.targetId;
+  if (action.type === "tell") return true;
   return false;
 }
 
 /**
  * Re-derive `targetId`/`topicId` from raw text using the deterministic rule
  * matchers. Used to repair ids the LLM resolver dropped or mis-cased.
+ * VERB-AWARE: when the verb is known (talk/ask/confront/tell/call), character
+ * names ("chris", "sarge", "mother", "phone") are resolved as targets; for
+ * examine/search/use the player is naming an OBJECT, so character-name matches
+ * are suppressed (e.g. "examine the letter Chris left" must target `note`,
+ * not `chris`). This prevents the first-array-match rule from mis-binding a
+ * character name embedded in an object description.
  * Returns only the fields it found (so an LLM-supplied valid id is preserved
  * when the rule pass is silent).
  */
-export function resolveTargetTopicFromText(raw: string): {
-  targetId?: string;
-  topicId?: string;
-} {
+const CHARACTER_TARGET_IDS = new Set(["chris", "sarge", "mother", "phone"]);
+
+export function resolveTargetTopicFromText(
+  raw: string,
+  verb?: string
+): { targetId?: string; topicId?: string } {
   const text = raw.trim();
-  const target = matchFirst(text, TARGET_PATTERNS as any);
   const topic = matchFirst(text, TOPIC_PATTERNS as any);
+  // For object verbs, exclude character-name ids from target resolution so a
+  // name embedded in an object description doesn't hijack the target.
+  const targetItems =
+    verb && ["examine", "search", "use", "move"].includes(verb)
+      ? (TARGET_PATTERNS as any).filter(
+          (t: { id: string }) => !CHARACTER_TARGET_IDS.has(t.id)
+        )
+      : (TARGET_PATTERNS as any);
+  const target = matchFirst(text, targetItems);
   const out: { targetId?: string; topicId?: string } = {};
   if (target?.id) out.targetId = target.id;
   if (topic?.id) out.topicId = topic.id;

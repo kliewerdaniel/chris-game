@@ -1,0 +1,13 @@
+=== CHRIS live re-verify (LLM resolver fixes) ===
+
+[START] ep=ep1
+   [PASS] #1 ask Chris about Sarge -> target chris (not sarge) verb=ask tgt=chris ok=True
+   [ep1] phoneUnlocked=True
+   [ep1 complete=True]
+[NOW] ep=ep4
+   [PASS] #2 call mother in ep3 -> ok (phoneUnlocked carried + reachable) verb=call tgt=mother ok=True
+[NOW] ep=ep4
+   [PASS] #3 examine the letter Chris left -> target note (not chris) tgt=note ev=[{'kind': 'document', 'title': "Chris's letter, found after", 'content': "'If you're reading this, I'm gone and you built the thing anyway. Good. Don't mistake the echo for the voice. It's not me. It's you, talking to yourself, and that's alright. — C.'", 'status': 'canonical', 'provenance': {'source': 'Episode design', 'sourceType': 'author', 'sourceId': 'ep4', 'confidence': 1}, 'supportsFactIds': ['ep4.reconstruction.is_model'], 'id': 'ev_chris_final_note', 'discovered': True, 'createdAt': {'day': 1, 'hour': 22, 'minute': 14}}]
+   [PASS] #4 finale: tell reconstruction -> endingId set (winnable) verb=tell endingId=ep4.closed complete=True
+
+=== ALL FIXES VERIFIED ===

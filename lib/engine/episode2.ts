@@ -338,6 +338,9 @@ export const EPISODE2: Episode = {
       state = characterEngine.liftWithhold(state, "chris", "ep1.chris.with_sarge"); // already known
       // Live contacts for this episode (Mother becomes reachable from Ep2).
       state = { ...state, contacts: contactsForEpisode("ep2") };
+      // Carry the phone-unlock forward so calls work after Ep1 (the hard
+      // !phoneUnlocked guard in resolveCall would otherwise block every call).
+      if (carry.phoneUnlocked) state = { ...state, phoneUnlocked: true };
     }
     state.quests["ep2.learn"] = { id: "ep2.learn", title: "Learn what Chris will teach", status: "active" };
     state.quests["ep2.truth"] = { id: "ep2.truth", title: "Decide what to do with what you know", status: "active" };

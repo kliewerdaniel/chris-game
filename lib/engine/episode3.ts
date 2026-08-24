@@ -294,6 +294,7 @@ export const EPISODE3: Episode = {
       };
       // Live contacts for this episode (Mother reachable in Ep3 too).
       state = { ...state, contacts: contactsForEpisode("ep3") };
+      if (carry.phoneUnlocked) state = { ...state, phoneUnlocked: true };
     }
     state.quests["ep3.truth"] = { id: "ep3.truth", title: "Get Chris to tell the truth about Sarge", status: "active" };
     state.quests["ep3.presence"] = { id: "ep3.presence", title: "Be with him, however he'll let you", status: "active" };

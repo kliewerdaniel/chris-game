@@ -222,6 +222,40 @@ function doRun(s: WorldState): { state: WorldState; result: ActionResult } {
   };
 }
 
+function doTell(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
+  // The player's final choice: what they tell the reconstruction — really,
+  // what they decide about it. In Ep4 the reconstruction is the ONLY
+  // conversational entity, so any `tell` addressed here (to chris / the model
+  // / the laptop echo / no target) is the closing address and wins the ending:
+  // you keep the letter, you keep the model, you know which is which.
+  if (
+    !a.targetId ||
+    a.targetId === "reconstruction" ||
+    a.targetId === "chris" ||
+    a.targetId === "model" ||
+    a.targetId === "laptop"
+  ) {
+    let next = setFlag(s, "ep4.stayed", true);
+    next = { ...next, episodeComplete: true, endingId: "ep4.closed" };
+    return {
+      state: next,
+      result: {
+        ok: true,
+        narration: [
+          beat(
+            "You tell the reconstruction you're staying. The voice settles, knowing it is an echo and loved anyway. You keep the letter. You keep the model. You know now which is which — and that knowing is the whole of what he left you. THE END."
+          ),
+        ],
+        events: addEvent(s, {
+          id: `ev_tell_${s.events.length}`,
+          type: "end",
+          description: "Player told the reconstruction they are staying. Story complete.",
+        }).events,
+      } as any,
+    };
+  }
+  return { state: s, result: { ok: true, narration: [beat("The reconstruction waits, in his voice. It will take whatever you give it.")], events: [] } };
+}
 function doMove(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
   if (a.targetId === "close" || a.targetId === "shut" || a.targetId === "stop" || a.targetId === "leave" || a.targetId === "laptop") {
     let next = setFlag(s, "ep4.closed", true);
@@ -265,6 +299,7 @@ export const EPISODE4: Episode = {
       };
       // Live contacts for this episode (Mother reachable in Ep4 too).
       state = { ...state, contacts: contactsForEpisode("ep4") };
+      if (carry.phoneUnlocked) state = { ...state, phoneUnlocked: true };
     }
     state.quests["ep4.understand"] = { id: "ep4.understand", title: "Decide what the reconstruction is", status: "active" };
     state.quests["ep4.grieve"] = { id: "ep4.grieve", title: "Keep Chris without mistaking the echo", status: "active" };
@@ -284,6 +319,8 @@ export const EPISODE4: Episode = {
         return (s, a) => doTalk(s, a);
       case "ask":
         return (s, a) => doAsk(s, a);
+      case "tell":
+        return (s, a) => doTell(s, a);
       case "examine":
       case "search":
       case "use":
