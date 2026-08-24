@@ -11,44 +11,44 @@ function fresh() {
 }
 
 describe("Character knowledge boundaries", () => {
-  it("Chris KNOWS canonical facts he holds", () => {
+  it("Reconstruction KNOWS canonical facts it holds (it is a model)", () => {
     const { ce, s } = fresh();
-    expect(ce.knows(s, "chris", "ep1.sarge.dead")).toBe(true);
-    expect(ce.knows(s, "chris", "ep1.chris.with_sarge")).toBe(true);
+    expect(ce.knows(s, "chris", "ep4.rec.is_model")).toBe(true);
+    expect(ce.knows(s, "chris", "ep1.act")).toBe(true);
   });
 
-  it("Chris does NOT know facts outside his boundary", () => {
+  it("Reconstruction does NOT know what it cannot have experienced", () => {
     const { ce, s } = fresh();
-    // ep1.mother.knows is in doesNotKnow
-    expect(ce.doesNotKnow(s, "chris", "ep1.mother.knows")).toBe(true);
-    expect(ce.knows(s, "chris", "ep1.mother.knows")).toBe(false);
+    // ep3.bedbound is Daniel's lived toll, not something the model knows
+    expect(ce.doesNotKnow(s, "chris", "ep3.bedbound")).toBe(true);
+    expect(ce.knows(s, "chris", "ep3.bedbound")).toBe(false);
   });
 
-  it("resolves LIE handling for guarded topics", () => {
+  it("resolves LIE handling for the 'I am Chris' claim", () => {
     const { ce, s } = fresh();
-    const r = ce.resolveTopic(s, "chris", "sarge_fine");
+    const r = ce.resolveTopic(s, "chris", "is_chris");
     expect(r.mode).toBe("lie");
-    expect(r.lieAbout).toBe("sarge_fine");
+    expect(r.lieAbout).toBe("is_chris");
   });
 
-  it("resolves WITHHOLD handling for secrets", () => {
+  it("resolves WITHHOLD handling for the model secret", () => {
     const { ce, s } = fresh();
-    const r = ce.resolveTopic(s, "chris", "ep1.chris.with_sarge");
+    const r = ce.resolveTopic(s, "chris", "ep4.rec.is_model");
     expect(r.mode).toBe("withhold");
   });
 
-  it("resolves TRUTH handling for known, non-secret topics", () => {
+  it("resolves TRUTH handling for a known, non-secret fact", () => {
     const { ce, s } = fresh();
-    const r = ce.resolveTopic(s, "chris", "ep1.sarge.dead");
+    const r = ce.resolveTopic(s, "chris", "ep1.feed.real");
     expect(r.mode).toBe("truth");
   });
 
   it("teaching grants knowledge; lifting withhold opens a topic", () => {
     const { ce, s } = fresh();
-    let s2 = ce.teach(s, "chris", "ep1.mother.knows");
-    expect(ce.knows(s2, "chris", "ep1.mother.knows")).toBe(true);
-    s2 = ce.liftWithhold(s2, "chris", "ep1.chris.with_sarge");
-    expect(ce.resolveTopic(s2, "chris", "ep1.chris.with_sarge").mode).not.toBe("withhold");
+    let s2 = ce.teach(s, "chris", "ep3.bedbound");
+    expect(ce.knows(s2, "chris", "ep3.bedbound")).toBe(true);
+    s2 = ce.liftWithhold(s2, "chris", "ep4.rec.is_model");
+    expect(ce.resolveTopic(s2, "chris", "ep4.rec.is_model").mode).not.toBe("withhold");
   });
 
   it("adjusts trust within 0..100", () => {
@@ -60,10 +60,10 @@ describe("Character knowledge boundaries", () => {
   });
 });
 
-describe("Chris is not a flattening of the author", () => {
-  it("has an explicit fictional identity and secrets", () => {
-    expect(CHRIS.identity).toMatch(/Marine/i);
-    expect(CHRIS.secrets).toContain("ep1.chris.with_sarge");
+describe("Chris is a reconstruction, not a flattening of the author", () => {
+  it("has an explicit reconstructed identity and the model secret", () => {
+    expect(CHRIS.identity).toMatch(/reconstruction/i);
+    expect(CHRIS.secrets).toContain("ep4.rec.is_model");
     expect(CHRIS.voice.mannerisms.length).toBeGreaterThan(0);
   });
 });

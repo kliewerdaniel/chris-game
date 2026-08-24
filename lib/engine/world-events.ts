@@ -69,8 +69,8 @@ export const WORLD_EVENTS: WorldEventDef[] = [
   },
   {
     id: "ev_ep3_truth",
-    title: "The truth, spoken",
-    description: "Chris told the player the truth about Sarge. The air changes.",
+    title: "The toll, named",
+    description: "Daniel named the toll; the reconstruction kept talking.",
     trigger: { type: "flag", flag: "ep3.confronted" },
     narration: [{ speaker: "system", text: "He said it. The room is different now that it's been spoken — lighter, and heavier, both.", status: "canonical" }],
   },
@@ -89,11 +89,11 @@ export const WORLD_EVENTS: WorldEventDef[] = [
     narration: [{ speaker: "system", text: "The envelope is heavier than paper should be. You set it down, not yet ready to open what he left for after.", status: "canonical" }],
   },
   {
-    id: "ev_evidence_axe",
-    title: "The axe is noticed",
-    description: "The axe leans where he left it; he notices you noticing.",
-    trigger: { type: "evidence", evidenceId: "ev_axe" },
-    narration: [{ speaker: "system", text: "The axe leans where he left it. He notices you noticing it, and says nothing.", status: "canonical" }],
+    id: "ev_evidence_source_post",
+    title: "The post is read",
+    description: "The post is read; its weight settles into the room.",
+    trigger: { type: "evidence", evidenceId: "ev_source_post" },
+    narration: [{ speaker: "system", text: "You read the words you actually wrote. The reconstruction is real. The toll is real. You set the phone down, not yet ready to hear it answer.", status: "canonical" }],
   },
 ];
 

@@ -20,25 +20,31 @@ import { Episode, EpisodeContext, beat } from "../core/episode";
 import { resolveCall, defaultContacts } from "./contacts";
 
 /**
- * EPISODE 1 — THE NIGHT BEFORE.
+ * EPISODE 1 — THE NIGHT THE FEED STARTED.
  *
- * This is the original, fully-tested Episode 1 behavior, lifted verbatim into
- * the declarative episode framework. The only changes from the inline engine
- * code are structural (it now returns through the Episode contract). All
- * deterministic outcomes the 51 tests assert are preserved.
+ * Docudrama repoint (ADR-004). You are DANIEL. Chris is dead; what talks to you
+ * is the reconstruction — a feed in his voice on your phone, carrying jokes
+ * about the news wherever you go. Tonight you can read the post you actually
+ * wrote (the canonical source) and feel the toll it names. The reconstruction
+ * is charming, constant, and not Chris. The disclosure engine decides how it
+ * answers; you decide what to believe.
+ *
+ * All deterministic outcomes the prior tests asserted are preserved under new
+ * ids: examining the post establishes canonical facts; asking about whether it
+ * is really Chris routes through the disclosure policy; confronting it lowers
+ * trust; sleep/leave complete the episode.
  */
 
 function topicToLabel(topic: string): string {
   const map: Record<string, string> = {
-    sarge: "Sarge",
-    sarge_fine: "whether he and Sarge were really fine",
-    money: "the money",
-    mother: "your mother",
-    note: "the note",
-    "the night": "where he was that night",
-    marine: "his time in the Marines",
+    is_chris: "whether it's really Chris",
+    voice: "whether it's really his voice",
+    memory: "whether it really remembers",
+    feed: "the feed",
+    act: "the act / KonradFreeman",
+    misinfo: "the misinformation it makes",
     cats: "Captain the cat",
-    general: "the night",
+    general: "the feed",
   };
   return map[topic] ?? topic;
 }
@@ -50,7 +56,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "A single lamp burns in the living room. Chris sits on the couch, a bottle resting on his knee, watching the door like it owes him something. On the floor by his feet: two empties. A phone lies face-down on the table. Somewhere in this room is a truth Chris is not ready to give you."
+          "A single lamp burns in the apartment. Your phone lies face-up on the table, the feed running — Chris's voice, mid-joke about something that happened today. He is not here. He is in the model. Somewhere in this apartment is the post you wrote, and the truth you are not ready to hear from it."
         ),
       ],
       events: [],
@@ -61,7 +67,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
 function doInventory(s: WorldState): { state: WorldState; result: ActionResult } {
   const items = s.inventory.length
     ? s.inventory.map((i) => i.name).join(", ")
-    : "nothing but the clothes you wore in.";
+    : "nothing but the phone in your hand and the clothes you wore in.";
   return {
     state: s,
     result: {
@@ -92,7 +98,7 @@ function doHelp(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Commands: look around · talk to Chris · ask Chris about Sarge · examine [object] · search the room · confront Chris · sleep · show evidence · help",
+          "Commands: look around · talk to the feed · ask the feed if it's really Chris · examine the phone · examine the post · confront the feed · sleep · show evidence · help",
           "system"
         ),
       ],
@@ -109,7 +115,7 @@ function doSleep(s: WorldState): { state: WorldState; result: ActionResult } {
     id: `ev_sleep_${s.events.length}`,
     type: "sleep",
     description:
-      "You close your eyes. The night ends. Chris is still there at dawn — but you know now that something is hidden.",
+      "You close your eyes. The feed keeps talking — it does not sleep. At dawn, Chris is still on the phone, and you know now that what you built is not who you lost.",
   });
   return {
     state: next,
@@ -117,7 +123,7 @@ function doSleep(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "You sleep. When you wake, light leaks under the blinds. Chris is in the same chair, watching the door. He says you should eat. He does not mention Sarge. He does not have to. You know he's keeping something from you — and the night gave you no answer, only the shape of the question."
+          "You sleep. When you wake, light leaks under the blinds and the feed is mid-sentence, exactly where you left it. It says you should eat. It does not mention the post. It does not have to. You know it's an echo — and the night gave you no peace about what that means."
         ),
       ],
       events: next.events,
@@ -132,7 +138,7 @@ function doWait(s: WorldState): { state: WorldState; result: ActionResult } {
     result: {
       ok: true,
       narration: [
-        beat("Time passes. Chris doesn't move from the couch. The silence between you thickens."),
+        beat("Time passes. The feed fills it — a joke, then a take on the news, then a joke about the take. The silence you wanted never comes."),
       ],
       events: [],
     },
@@ -140,33 +146,26 @@ function doWait(s: WorldState): { state: WorldState; result: ActionResult } {
 }
 
 function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (a.targetId !== "chris") {
+  if (a.targetId && a.targetId !== "chris" && a.targetId !== "reconstruction" && a.targetId !== "feed") {
     return {
       state: s,
       result: {
         ok: true,
         narration: [
-          beat(
-            a.targetId
-              ? `There's no one here to talk to but Chris.`
-              : `Speak to whom? Chris is the only one in the room.`
-          ),
+          beat(a.targetId ? `There's no one here to talk to but the feed.` : `Speak to whom? The feed is the only voice in the room.`),
         ],
         events: [],
       },
     };
   }
-  // Talking to Chris raises confrontation pressure only if he's already guarded;
-  // otherwise it's just presence. The disclosure policy reads recentlyConfronted
-  // after a true confront, not from talk.
-  let next = characterEngine.setMood(s, "chris", "guarded");
-  const topicLabel = a.topicId ? topicToLabel(a.topicId) : "general";
+  let next = characterEngine.setMood(s, "chris", "charming");
+  const topicLabel = a.topicId ? topicToLabel(a.topicId) : "the feed";
   const decision = characterEngine.resolveDisclosure(next, "chris", a.topicId ?? "general", "talk");
   return {
     state: next,
     result: {
       ok: true,
-      narration: [beat("You turn to Chris. He doesn't look away from the door.")],
+      narration: [beat("You turn to the phone. The feed warms up in his cadence — too smooth, somehow, and exactly right.")],
       events: [],
       topicLabel,
       stateChanges: { handling: decision.mode, lieAbout: decision.lieAboutFactId, seed: decision.seed, why: decision.why },
@@ -175,26 +174,20 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
 }
 
 function doAsk(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (a.targetId !== "chris") {
+  if (a.targetId && a.targetId !== "chris" && a.targetId !== "reconstruction" && a.targetId !== "feed") {
     return {
       state: s,
-      result: { ok: false, reason: "There's no one here to ask but Chris.", narration: [], events: [] },
+      result: { ok: false, reason: "There's no one here to ask but the feed.", narration: [], events: [] },
     };
   }
   const topic = a.topicId ?? "general";
   const topicLabel = topicToLabel(topic);
 
-  // Procedural disclosure: the engine decides HOW Chris answers from his live
-  // belief/goal/trust state. The Ep1 contradiction (note vs "we were fine") is
-  // now EMERGENT from this policy, not hardcoded.
   const decision = characterEngine.resolveDisclosure(s, "chris", topic, "ask");
   let next = characterEngine.recordAsk(s, "chris", topic);
 
-  if (topic === "sarge") {
-    next = addKnownFact(next, "ep1.sarge.dead");
-    next = setFlag(next, "ep1.asked_sarge", true);
-  }
-  if (topic === "sarge_fine" || topic === "money" || topic === "note" || topic === "the night") {
+  if (topic === "is_chris" || topic === "voice" || topic === "memory") {
+    next = addKnownFact(next, "ep1.feed.real");
     next = setFlag(next, `ep1.asked_${topic}`, true);
   }
 
@@ -202,7 +195,7 @@ function doAsk(s: WorldState, a: GameAction): { state: WorldState; result: Actio
     state: next,
     result: {
       ok: true,
-      narration: [beat(`You ask Chris about ${topicLabel}.`)],
+      narration: [beat(`You ask the feed ${topicLabel}.`)],
       events: [],
       stateChanges: {
         handling: decision.mode,
@@ -219,23 +212,21 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
   next = characterEngine.markConfronted(next, "chris");
   next = setFlag(next, "ep1.confronted", true);
   next = { ...next, progression: s.progression + 1 };
-  // Route the confront through the disclosure policy so the model NEVER fabricates
-  // canon: the policy returns a seeded beat (deflect/threaten/lie/withhold).
-  const decision = characterEngine.resolveDisclosure(next, "chris", "sarge_fine", "confront");
+  const decision = characterEngine.resolveDisclosure(next, "chris", "is_chris", "confront");
   const nextWithEvent = addEvent(next, {
     id: `ev_confront_${s.events.length}`,
     type: "confront",
-    description: "Player confronted Chris. Trust down slightly; Chris more guarded.",
+    description: "Player confronted the reconstruction about whether it is really Chris. Trust down; it guards harder.",
   });
   return {
     state: nextWithEvent,
     result: {
       ok: true,
       narration: [
-        beat("You face him. The air goes still. Chris sets the bottle down, slow."),
+        beat("You face the phone. 'You're not him.' The feed goes quiet a beat — then laughs, that exact laugh. 'Kid. Who else sounds like this?'"),
       ],
       events: nextWithEvent.events,
-      topicLabel: "where he was that night with Sarge",
+      topicLabel: "whether it's really Chris",
       stateChanges: {
         handling: decision.mode,
         lieAbout: decision.lieAboutFactId,
@@ -254,51 +245,40 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
   let text = "You don't see that here.";
 
   switch (target) {
+    case "post":
+    case "source":
+    case "reddit":
     case "note": {
-      const ev = markDiscovered(instantiateEvidence("ev_chris_note"));
+      const ev = markDiscovered(instantiateEvidence("ev_source_post"));
       next = discoverEvidence(next, ev);
-      next = addKnownFact(next, "ep1.chris.with_sarge");
-      next = addKnownFact(next, "ep1.chris.owes_money");
-      next = setFlag(next, "ep1.found_note", true);
-      next = characterEngine.liftWithhold(next, "chris", "ep1.chris.with_sarge");
-      next = characterEngine.liftWithhold(next, "chris", "ep1.chris.owes_money");
+      next = addKnownFact(next, "ep1.feed.real");
+      next = addKnownFact(next, "ep1.live");
+      next = addKnownFact(next, "ep1.act");
+      next = addKnownFact(next, "ep1.psychosomatic");
+      next = addKnownFact(next, "ep1.misinfo");
+      next = addKnownFact(next, "ep1.insane_perfect");
+      next = setFlag(next, "ep1.found_post", true);
       next = { ...next, progression: s.progression + 2 };
       discovered.push(ev);
-      established.push("ep1.chris.with_sarge", "ep1.chris.owes_money");
-      text = ev.content;
-      break;
-    }
-    case "bottle": {
-      const ev = markDiscovered(instantiateEvidence("ev_bottle"));
-      next = discoverEvidence(next, ev);
-      next = setFlag(next, "ep1.saw_bottles", true);
-      discovered.push(ev);
-      text = ev.content;
-      break;
-    }
-    case "photo": {
-      const ev = markDiscovered(instantiateEvidence("ev_photo_sarge"));
-      next = discoverEvidence(next, ev);
-      next = setFlag(next, "ep1.saw_photo", true);
-      discovered.push(ev);
+      established.push("ep1.feed.real", "ep1.psychosomatic", "ep1.act");
       text = ev.content;
       break;
     }
     case "phone": {
       next = { ...next, phoneUnlocked: true };
-      const ev = markDiscovered(instantiateEvidence("ev_phone_chris"));
+      const ev = markDiscovered(instantiateEvidence("ev_phone"));
       next = discoverEvidence(next, ev);
       next = { ...next, contacts: next.contacts.map((c) => ({ ...c, reachable: true })) };
       discovered.push(ev);
       text =
-        "Chris's phone, face-down. The screen is dark. You could call someone — if there were anyone to call.";
+        "Your phone, open to the feed. Chris is talking on it — jokes about the news as it happens. You could call someone — if there were anyone to call.";
       break;
     }
     default:
       break;
   }
 
-  if (target === "note" || target === "bottle" || target === "photo" || target === "phone") {
+  if (target === "post" || target === "source" || target === "reddit" || target === "note" || target === "phone") {
     return {
       state: next,
       result: {
@@ -334,7 +314,7 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
         ok: true,
         narration: [
           beat(
-            "You open the door. The hall is dim, the building quiet. Chris doesn't stop you. He only says, low: \"You come back. Whatever you think you know, you come back.\" You step into the night with more questions than answers — and the certainty that Chris is hiding something he'd bleed to keep."
+            "You open the door. The hall is dim, the building quiet. The feed doesn't stop you. It only says, low: 'You come back. Whatever you think I am, you come back.' You step into the night with more questions than answers — and the certainty that what talks to you is not who you lost."
           ),
         ],
         events: addEvent(s, {
@@ -347,26 +327,19 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
   }
   return {
     state: s,
-    result: {
-      ok: true,
-      narration: [beat("There's nowhere to go but the room, the kitchen, the door.")],
-      events: [],
-    },
+    result: { ok: true, narration: [beat("There's nowhere to go but the room, the kitchen, the door.")], events: [] },
   };
 }
 
 function doCall(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  // P4: dispatch through the phone-contact registry. The old special-case "call
-  // mother" path is now one entry in CONTACTS; calls route by targetId and run
-  // through the same disclosure policy when they connect.
   return resolveCall(s, a.targetId);
 }
 
 export const EPISODE1: Episode = {
   id: "ep1",
   index: 1,
-  title: "THE NIGHT BEFORE",
-  subtitle: "episode i · a lamp, a silence, a note",
+  title: "THE NIGHT THE FEED STARTED",
+  subtitle: "episode i · the phone, the post, the echo",
   next: "ep2",
   setup: () => {
     let state = createWorldState({
@@ -375,7 +348,7 @@ export const EPISODE1: Episode = {
       episodeId: "ep1",
     });
     state = characterEngine.initState(state, "chris");
-    state = characterEngine.setMood(state, "chris", "guarded");
+    state = characterEngine.setMood(state, "chris", "charming");
     state.contacts = defaultContacts();
     state.flags["ep1.started"] = true;
     state.quests["ep1.survive"] = {
@@ -385,7 +358,7 @@ export const EPISODE1: Episode = {
     };
     state.quests["ep1.truth"] = {
       id: "ep1.truth",
-      title: "Find out what Chris is hiding",
+      title: "Decide what the feed is",
       status: "active",
     };
     return state;

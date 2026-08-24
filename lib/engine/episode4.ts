@@ -19,33 +19,30 @@ import { Episode, EpisodeContext, beat } from "../core/episode";
 import { resolveCall, contactsForEpisode } from "./contacts";
 
 /**
- * EPISODE 4 — THE REBUILD.
+ * EPISODE 4 — THE ACT.
  *
- * After Chris is gone. The player has used AI to compile a reconstruction of
- * him from his writing, voice, and memory. The epistemic crux: the
- * reconstruction is a MODEL of Chris, not Chris — and the player must decide
- * what that means. This episode surfaces the reliability/testimony mechanic at
- * its sharpest: the reconstruction "remembers" things it cannot, and the
- * player can find Chris's own letter warning against mistaking the echo for
- * the voice.
+ * Docudrama repoint (ADR-004). The reckoning. Daniel is the creator; Chris is
+ * gone; the reconstruction runs on his phone in Chris's voice. The epistemic
+ * crux: the reconstruction is a MODEL of Chris, not Chris — and Daniel must
+ * decide what that means. The reconstruction "remembers" things it cannot, and
+ * the player can find Chris's own letter warning against mistaking the echo for
+ * the voice. KonradFreeman stays META-LAYER ONLY: referenced as the handle
+ * Daniel performed through, never a scene character.
  *
- * Continuity: carries trust/evidence/known facts forward (Chris's trust is
- * moot here — he is gone — but the evidence and established facts persist so
- * the player owns the whole arc).
- *
- * The reconstruction is voiced by the SAME local model, but tagged as
- * "reconstruction" and never as canonical Chris. The engine decides every
- * state change.
+ * Continuity: carries trust/evidence/known facts forward. Chris's runtime state
+ * is inert but preserved for continuity. The reconstruction is voiced by the
+ * SAME local model, tagged "reconstruction," never canonical Chris.
  */
 
 function topicToLabel(topic: string): string {
   const map: Record<string, string> = {
-    cats: "Captain the cat",
-    sarge: "Sarge",
-    marine: "the Marines",
-    debt: "the debt",
+    is_chris: "whether it's really Chris",
+    voice: "whether it's really his voice",
     memory: "whether it really remembers",
-    voice: "whether it's really him",
+    feed: "the feed",
+    act: "the act / KonradFreeman",
+    misinfo: "the misinformation it makes",
+    cats: "Captain the cat",
     general: "the reconstruction",
   };
   return map[topic] ?? topic;
@@ -58,7 +55,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said. On the desk: a sealed envelope in his hand, marked 'IF YOU BUILD THE THING.' The reconstruction waits, patient, in his voice."
+          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said. On the desk: a sealed letter in his hand, marked 'IF YOU BUILT THE THING.' The reconstruction waits, patient, in his voice. Somewhere in the corners of the net, an account called KonradFreeman is still performing the act you started — but that voice is not in this room."
         ),
       ],
       events: [],
@@ -90,7 +87,7 @@ function doHelp(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Commands: look around · talk to the reconstruction · ask the reconstruction about Sarge · examine the envelope · examine the output log · run the model · help",
+          "Commands: look around · talk to the reconstruction · ask if it's really Chris · examine the letter · examine the output log · run the model · help",
           "system"
         ),
       ],
@@ -100,7 +97,7 @@ function doHelp(s: WorldState): { state: WorldState; result: ActionResult } {
 }
 
 function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (a.targetId !== "reconstruction" && a.targetId !== "chris" && a.targetId !== "model") {
+  if (a.targetId && a.targetId !== "chris" && a.targetId !== "reconstruction" && a.targetId !== "feed" && a.targetId !== "model") {
     return {
       state: s,
       result: {
@@ -123,23 +120,21 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
 }
 
 function doAsk(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (a.targetId !== "reconstruction" && a.targetId !== "chris" && a.targetId !== "model") {
+  if (a.targetId && a.targetId !== "chris" && a.targetId !== "reconstruction" && a.targetId !== "feed" && a.targetId !== "model") {
     return { state: s, result: { ok: false, reason: "There's no one here to ask but the reconstruction.", narration: [], events: [] } };
   }
   const topic = a.topicId ?? "general";
   const topicLabel = topicToLabel(topic);
-  // The reconstruction's replies are TESTIMONY/RUMOR — the engine tags them,
-  // never promotes them to canonical. Asking about memory surfaces the crux.
   let next = s;
-  if (topic === "memory" || topic === "voice") {
-    next = addKnownFact(next, "ep4.reconstruction.remembers");
-    next = setFlag(next, "ep4.asked_memory", true);
+  if (topic === "is_chris" || topic === "voice" || topic === "memory" || topic === "act") {
+    next = addKnownFact(next, "ep4.rec.is_model");
+    next = setFlag(next, `ep4.asked_${topic}`, true);
   }
   return {
     state: next,
     result: {
       ok: true,
-      narration: [beat(`You ask the reconstruction about ${topicLabel}.`)],
+      narration: [beat(`You ask the reconstruction ${topicLabel}.`)],
       events: [],
       stateChanges: { handling: "testimony", speaker: "reconstruction" },
     } as any,
@@ -159,11 +154,11 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
     case "letter": {
       const ev = markDiscovered(instantiateEvidence("ev_chris_final_note"));
       next = discoverEvidence(next, ev);
-      next = addKnownFact(next, "ep4.reconstruction.is_model");
+      next = addKnownFact(next, "ep4.rec.is_model");
       next = setFlag(next, "ep4.found_letter", true);
       next = { ...next, progression: s.progression + 2 };
       discovered.push(ev);
-      established.push("ep4.reconstruction.is_model");
+      established.push("ep4.rec.is_model");
       text = ev.content;
       break;
     }
@@ -173,10 +168,10 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
     case "laptop": {
       const ev = markDiscovered(instantiateEvidence("ev_reconstruction_log"));
       next = discoverEvidence(next, ev);
-      next = addKnownFact(next, "ep4.reconstruction.is_model");
+      next = addKnownFact(next, "ep4.rec.is_model");
       next = setFlag(next, "ep4.saw_log", true);
       discovered.push(ev);
-      established.push("ep4.reconstruction.is_model");
+      established.push("ep4.rec.is_model");
       text = ev.content;
       break;
     }
@@ -201,7 +196,7 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
 
 function doRun(s: WorldState): { state: WorldState; result: ActionResult } {
   let next = setFlag(s, "ep4.ran_model", true);
-  next = addKnownFact(next, "ep4.reconstruction.begins");
+  next = addKnownFact(next, "ep4.rec.begins");
   next = { ...next, progression: s.progression + 1 };
   const nextWithEvent = addEvent(next, {
     id: `ev_run_${s.events.length}`,
@@ -223,16 +218,12 @@ function doRun(s: WorldState): { state: WorldState; result: ActionResult } {
 }
 
 function doTell(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  // The player's final choice: what they tell the reconstruction — really,
-  // what they decide about it. In Ep4 the reconstruction is the ONLY
-  // conversational entity, so any `tell` addressed here (to chris / the model
-  // / the laptop echo / no target) is the closing address and wins the ending:
-  // you keep the letter, you keep the model, you know which is which.
   if (
     !a.targetId ||
     a.targetId === "reconstruction" ||
     a.targetId === "chris" ||
     a.targetId === "model" ||
+    a.targetId === "feed" ||
     a.targetId === "laptop"
   ) {
     let next = setFlag(s, "ep4.stayed", true);
@@ -256,6 +247,7 @@ function doTell(s: WorldState, a: GameAction): { state: WorldState; result: Acti
   }
   return { state: s, result: { ok: true, narration: [beat("The reconstruction waits, in his voice. It will take whatever you give it.")], events: [] } };
 }
+
 function doMove(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
   if (a.targetId === "close" || a.targetId === "shut" || a.targetId === "stop" || a.targetId === "leave" || a.targetId === "laptop") {
     let next = setFlag(s, "ep4.closed", true);
@@ -273,13 +265,13 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       },
     };
   }
-  return { state: s, result: { ok: true, narration: [beat("The desk, the screens, the sealed envelope. That's the room now.")], events: [] } };
+  return { state: s, result: { ok: true, narration: [beat("The desk, the screens, the sealed letter. That's the room now.")], events: [] } };
 }
 
 export const EPISODE4: Episode = {
   id: "ep4",
   index: 4,
-  title: "THE REBUILD",
+  title: "THE ACT",
   subtitle: "episode iv · the echo, the letter, the difference",
   next: null,
   setup: (carry?: WorldState) => {
@@ -288,7 +280,6 @@ export const EPISODE4: Episode = {
       characterIds: Object.keys(CHARACTERS),
       episodeId: "ep4",
     });
-    // Chris is gone; his runtime state is inert but preserved for continuity.
     state = characterEngine.initState(state, "chris");
     state = characterEngine.setMood(state, "chris", "gone");
     if (carry) {
@@ -297,7 +288,6 @@ export const EPISODE4: Episode = {
         evidenceIds: [...carry.evidenceIds],
         knownFacts: [...new Set([...carry.knownFacts, ...state.knownFacts])],
       };
-      // Live contacts for this episode (Mother reachable in Ep4 too).
       state = { ...state, contacts: contactsForEpisode("ep4") };
       if (carry.phoneUnlocked) state = { ...state, phoneUnlocked: true };
     }
@@ -326,13 +316,10 @@ export const EPISODE4: Episode = {
       case "use":
         return (s, a) => doExamine(s, a);
       case "confront":
-        // "confront the reconstruction" = run it / challenge its memory
         return (s) => doRun(s);
       case "call":
-        // "call mother/sarge" reaches the contact registry; a target-less or
-        // non-contact "call" is treated as running the reconstruction.
         return (s, a) =>
-          a.targetId && (a.targetId === "mother" || a.targetId === "sarge")
+          a.targetId && a.targetId === "mother"
             ? resolveCall(s, a.targetId)
             : doRun(s);
       case "move":

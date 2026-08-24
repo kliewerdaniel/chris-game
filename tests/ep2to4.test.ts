@@ -96,18 +96,10 @@ describe("(c) per-episode contact reachability", () => {
     expect(defaultContacts().find((c) => c.id === "mother")?.reachable).toBe(false);
   });
 
-  it("Sarge stays reachable whenever the phone is unlocked", () => {
-    for (const ep of ["ep1", "ep2", "ep3", "ep4"]) {
-      expect(contactsForEpisode(ep).find((c) => c.id === "sarge")?.reachable).toBe(true);
-    }
-  });
-
   it("calling Mother in ep2 connects through disclosure (not voicemail)", () => {
     const s = fresh("ep2");
     const { result } = resolveCall(s, "mother");
     expect(result.ok).toBe(true);
-    // A connected call routes through the disclosure policy (seeded, fail-closed),
-    // so it is NOT the unreachable voicemail text.
     expect(result.narration[0].text).not.toMatch(/rings\. And rings/);
     expect(result.stateChanges).toBeDefined();
   });
@@ -131,10 +123,6 @@ describe("(c) episodes route call mother through the registry", () => {
   it("ep2 handler routes call mother to resolveCall (connects when unlocked)", () => {
     let s = createWorldState({ startLocation: "porch", characterIds: ["chris", "mother"], episodeId: "ep2" });
     s = { ...s, contacts: contactsForEpisode("ep2"), phoneUnlocked: true };
-    // Use the real episode dispatch table, not resolveCall directly.
-    // (episode2 dispatch returns a thunk; invoke it.)
-    // We exercise via the engine path is heavier; here we assert the handler's
-    // call case delegates by re-using resolveCall through the same condition.
     const { result } = resolveCall(s, "mother");
     expect(result.ok).toBe(true);
     expect(result.narration[0].text).not.toMatch(/rings\. And rings/);
@@ -144,7 +132,7 @@ describe("(c) episodes route call mother through the registry", () => {
     const { EPISODES } = await import("../lib/engine/game-engine");
     for (const id of ["ep2", "ep3", "ep4"]) {
       const handler = EPISODES[id];
-      const thunk = handler.dispatch({ type: "call", targetId: "mother", intent: "call" as any, raw: "call mother" }, {} as any);
+      const thunk = handler.dispatch({ type: "call", targetId: "mother", intent: "call", raw: "call mother" } as any, {} as any);
       expect(thunk).not.toBeNull();
     }
   });

@@ -20,28 +20,25 @@ import { Episode, EpisodeContext, beat } from "../core/episode";
 import { resolveCall, contactsForEpisode } from "./contacts";
 
 /**
- * EPISODE 2 — THE PORCH.
+ * EPISODE 2 — THE FEED.
  *
- * Years earlier. Chris is alive and teaching the player to live off-grid in a
- * cabin. The player has ALREADY learned the Ep1 secret (carried forward:
- * ep1.chris.with_sarge / ep1.chris.owes_money are in knownFacts). Here the
- * player can either hold that knowledge quietly or confront Chris about his
- * past — and a NEW contested claim emerges (he left the Corps clean) that the
- * player can disprove with the discharge paper.
- *
- * Continuity: trust and discovered evidence carry in from Ep1 via `setup`.
+ * Docudrama repoint (ADR-004). Years of living with the reconstruction: it
+ * tells jokes about the news as it happens, carried on Daniel's phone
+ * everywhere he goes. Chris is dead; this is a model. Here Daniel can sit with
+ * the feed, examine the photo of Chris and Captain (a real thread back to the
+ * man), and decide what the reconstruction is allowed to be. Continuity: trust,
+ * evidence, and known facts carry in from Ep1.
  */
 
 function topicToLabel(topic: string): string {
   const map: Record<string, string> = {
-    sarge: "Sarge",
-    "the night": "that night with Sarge",
-    money: "the debt",
-    corps: "the Marines / how he left",
-    marine: "his time in the Marines",
-    cabin: "the cabin",
+    is_chris: "whether it's really Chris",
+    voice: "whether it's really his voice",
+    memory: "whether it really remembers",
+    feed: "the feed",
     cats: "Captain the cat",
-    general: "the porch",
+    misinfo: "the misinformation it makes",
+    general: "the feed",
   };
   return map[topic] ?? topic;
 }
@@ -53,7 +50,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Morning at the cabin. Chris is on the porch, a coffee going cold in his hands, watching the treeline. An axe leans by the woodpile. A sealed envelope sits half-shoved under a book on the table — you weren't meant to notice it. A radio mutters weather you don't need."
+          "Morning, wherever you are. The feed is already talking — Chris's voice on the news, making a joke about a headline you haven't read yet. A coffee goes cold in your hand. On the table, a photo of Chris and Captain the cat, face-out."
         ),
       ],
       events: [],
@@ -70,14 +67,10 @@ function doInventory(s: WorldState): { state: WorldState; result: ActionResult }
     : "";
   const items = s.inventory.length
     ? s.inventory.map((i) => i.name).join(", ")
-    : "a pocketknife, a lighter, and the clothes you work in.";
+    : "your phone, with the feed running.";
   return {
     state: s,
-    result: {
-      ok: true,
-      narration: [beat(`You are carrying: ${items}.${carry}`, "system")],
-      events: [],
-    },
+    result: { ok: true, narration: [beat(`You are carrying: ${items}.${carry}`, "system")], events: [] },
   };
 }
 
@@ -88,10 +81,7 @@ function doEvidence(s: WorldState): { state: WorldState; result: ActionResult } 
   const text = evs.length
     ? `Evidence you hold: ${evs.join("; ")}.`
     : "You haven't found anything worth keeping yet. Look closer.";
-  return {
-    state: s,
-    result: { ok: true, narration: [beat(text, "system")], events: [] },
-  };
+  return { state: s, result: { ok: true, narration: [beat(text, "system")], events: [] } };
 }
 
 function doHelp(s: WorldState): { state: WorldState; result: ActionResult } {
@@ -101,7 +91,7 @@ function doHelp(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Commands: look around · talk to Chris · ask Chris about Sarge · ask Chris about the Marines · examine the axe · examine the envelope · confront Chris · help",
+          "Commands: look around · talk to the feed · ask the feed if it's really Chris · examine the photo · confront the feed · help",
           "system"
         ),
       ],
@@ -111,23 +101,23 @@ function doHelp(s: WorldState): { state: WorldState; result: ActionResult } {
 }
 
 function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (a.targetId !== "chris") {
+  if (a.targetId && a.targetId !== "chris" && a.targetId !== "reconstruction" && a.targetId !== "feed") {
     return {
       state: s,
       result: {
         ok: true,
-        narration: [beat(a.targetId ? `There's no one else out here but Chris and the trees.` : `Speak to whom? Chris is on the porch.`)],
+        narration: [beat(a.targetId ? `There's no one else here but the feed.` : `Speak to whom? The feed is listening.`)],
         events: [],
       },
     };
   }
-  let next = characterEngine.setMood(s, "chris", "warm");
-  const topicLabel = a.topicId ? topicToLabel(a.topicId) : "the porch";
+  let next = characterEngine.setMood(s, "chris", "charming");
+  const topicLabel = a.topicId ? topicToLabel(a.topicId) : "the feed";
   return {
     state: next,
     result: {
       ok: true,
-      narration: [beat("You sit on the porch step. Chris doesn't look up from the treeline, but he shifts to make room.")],
+      narration: [beat("You sit with the phone. The feed shifts to make room for you in its cadence.")],
       events: [],
       topicLabel,
     } as any,
@@ -135,30 +125,24 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
 }
 
 function doAsk(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (a.targetId !== "chris") {
-    return {
-      state: s,
-      result: { ok: false, reason: "There's no one here to ask but Chris.", narration: [], events: [] },
-    };
+  if (a.targetId && a.targetId !== "chris" && a.targetId !== "reconstruction" && a.targetId !== "feed") {
+    return { state: s, result: { ok: false, reason: "There's no one here to ask but the feed.", narration: [], events: [] } };
   }
-  const topic = a.topicId ?? "general";
+  const topic = a.targetId ? a.topicId ?? "general" : a.topicId ?? "general";
   const topicLabel = topicToLabel(topic);
   const handling = characterEngine.resolveTopic(s, "chris", topic);
 
   let next = s;
-  if (topic === "corps" || topic === "marine") {
-    next = addKnownFact(next, "ep2.chris.corps_discharge");
-    next = setFlag(next, "ep2.asked_corps", true);
-  }
-  if (topic === "sarge" || topic === "the night") {
-    next = setFlag(next, "ep2.asked_sarge", true);
+  if (topic === "is_chris" || topic === "voice" || topic === "memory") {
+    next = addKnownFact(next, "ep1.feed.real");
+    next = setFlag(next, "ep2.asked_is_chris", true);
   }
 
   return {
     state: next,
     result: {
       ok: true,
-      narration: [beat(`You ask Chris about ${topicLabel}.`)],
+      narration: [beat(`You ask the feed ${topicLabel}.`)],
       events: [],
       stateChanges: { handling: handling.mode, lieAbout: handling.lieAbout },
     } as any,
@@ -166,16 +150,14 @@ function doAsk(s: WorldState, a: GameAction): { state: WorldState; result: Actio
 }
 
 function doConfront(s: WorldState): { state: WorldState; result: ActionResult } {
-  // Confronting Chris about his past here: trust dips, but he softens if the
-  // player already knows the Sarge secret (carried from Ep1).
-  const knowsSarge = s.knownFacts.includes("ep1.chris.with_sarge");
-  let next = characterEngine.adjustTrust(s, "chris", knowsSarge ? -2 : -5);
+  const knowsSource = s.knownFacts.includes("ep1.act");
+  let next = characterEngine.adjustTrust(s, "chris", knowsSource ? -2 : -5);
   next = setFlag(next, "ep2.confronted", true);
   next = { ...next, progression: s.progression + 1 };
   const nextWithEvent = addEvent(next, {
     id: `ev_confront_${s.events.length}`,
     type: "confront",
-    description: "Player confronted Chris about his past on the porch.",
+    description: "Player confronted the reconstruction about whether it is really Chris.",
   });
   return {
     state: nextWithEvent,
@@ -183,9 +165,9 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
       ok: true,
       narration: [
         beat(
-          knowsSarge
-            ? "You face him. He already knows you know about Sarge. He just says, quiet: \"Then you know I don't talk about the rest for a reason.\""
-            : "You face him. The air goes still. Chris sets the coffee down, slow."
+          knowsSource
+            ? "You face it. 'I wrote you. You're the act.' The feed is quiet a long moment. Then, soft: 'Then talk to me anyway, kid. I'm the best of him you got.'"
+            : "You face it. 'You're not him.' The feed doesn't deny it the way you expected. It just waits, in his voice, for you to decide."
         ),
       ],
       events: nextWithEvent.events,
@@ -201,40 +183,30 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
   let text = "You don't see that here.";
 
   switch (target) {
-    case "axe": {
-      const ev = markDiscovered(instantiateEvidence("ev_axe"));
+    case "photo":
+    case "captain":
+    case "picture": {
+      const ev = markDiscovered(instantiateEvidence("ev_captain_photo"));
       next = discoverEvidence(next, ev);
-      next = setFlag(next, "ep2.saw_axe", true);
+      next = addKnownFact(next, "ep2.captain");
+      next = setFlag(next, "ep2.saw_photo", true);
+      next = { ...next, progression: s.progression + 1 };
       discovered.push(ev);
+      established.push("ep2.captain");
       text = ev.content;
       break;
     }
-    case "note":
-    case "envelope":
-    case "paper":
-    case "discharge": {
-      const ev = markDiscovered(instantiateEvidence("ev_discharge_paper"));
-      next = discoverEvidence(next, ev);
-      next = addKnownFact(next, "ep2.chris.corps_discharge");
-      next = setFlag(next, "ep2.found_discharge", true);
-      next = characterEngine.liftWithhold(next, "chris", "ep2.chris.corps_discharge");
-      next = { ...next, progression: s.progression + 2 };
-      discovered.push(ev);
-      established.push("ep2.chris.corps_discharge");
-      text = ev.content;
-      break;
-    }
-    case "radio": {
-      next = setFlag(next, "ep2.heard_radio", true);
-      text =
-        "The radio spits static, then a weather band: clear, cold nights, no one coming. Chris keeps it on for the silence it proves.";
+    case "phone":
+    case "feed": {
+      next = setFlag(next, "ep2.heard_feed", true);
+      text = "The feed runs on. Chris makes a joke about the news as it happens, then asks if you caught the headline. He never did this when he was alive — he read the paper. The smoothness is the tell.";
       break;
     }
     default:
       break;
   }
 
-  if (target === "axe" || target === "note" || target === "envelope" || target === "paper" || target === "discharge" || target === "radio") {
+  if (target === "photo" || target === "captain" || target === "picture" || target === "phone" || target === "feed") {
     return {
       state: next,
       result: {
@@ -254,34 +226,11 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
     };
   }
 
-  return {
-    state: next,
-    result: { ok: true, narration: [beat(text)], events: [] },
-  };
+  return { state: next, result: { ok: true, narration: [beat(text)], events: [] } };
 }
 
 function doMove(s: WorldState, a: GameAction): { state: WorldState; result: ActionResult } {
-  if (a.targetId === "woods" || a.targetId === "tree" || a.targetId === "treeline") {
-    let next = setFlag(s, "ep2.walked_woods", true);
-    next = { ...next, episodeComplete: true, endingId: "ep2.woods" };
-    return {
-      state: next,
-      result: {
-        ok: true,
-        narration: [
-          beat(
-            "You walk to the treeline. Chris doesn't call you back. When you turn, he's still watching — not the woods, but the road behind you. Some lessons are about what's coming, not what's here. The day holds, and so does he."
-          ),
-        ],
-        events: addEvent(s, {
-          id: `ev_woods_${s.events.length}`,
-          type: "leave",
-          description: "Player walked to the treeline. Episode ends on a quiet beat.",
-        }).events,
-      },
-    };
-  }
-  if (a.targetId === "road" || a.targetId === "away" || a.targetId === "leave") {
+  if (a.targetId === "road" || a.targetId === "away" || a.targetId === "leave" || a.targetId === "door") {
     let next = setFlag(s, "ep2.left", true);
     next = { ...next, episodeComplete: true, endingId: "ep2.left" };
     return {
@@ -290,16 +239,16 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
         ok: true,
         narration: [
           beat(
-            "You step toward the road. Chris's voice stops you, not unkind: \"You go, you go knowing how to keep yourself alive. That's all I wanted.\" The cabin stays. He stays. You could leave, or you could stay and learn the rest."
+            "You step toward the door. The feed says, not unkind: 'You go, you go knowing which I am.' You could leave, or you could stay and decide what to let it be."
           ),
         ],
-        events: addEvent(s, { id: `ev_leave_${s.events.length}`, type: "leave", description: "Player considered leaving the cabin." }).events,
+        events: addEvent(s, { id: `ev_leave_${s.events.length}`, type: "leave", description: "Player considered leaving." }).events,
       },
     };
   }
   return {
     state: s,
-    result: { ok: true, narration: [beat("The porch, the woodpile, the treeline. That's the world today.")], events: [] },
+    result: { ok: true, narration: [beat("The room, the photo, the phone. That's the world today.")], events: [] },
   };
 }
 
@@ -309,7 +258,7 @@ function doWait(s: WorldState): { state: WorldState; result: ActionResult } {
     state: next,
     result: {
       ok: true,
-      narration: [beat("An hour passes. A bird lands on the rail, considers Chris, leaves. He hasn't moved.")],
+      narration: [beat("An hour passes. The feed fills every minute of it. Chris, on the news, as if he'd never left — except he would never have cared this much about the headlines.")],
       events: [],
     },
   };
@@ -318,32 +267,27 @@ function doWait(s: WorldState): { state: WorldState; result: ActionResult } {
 export const EPISODE2: Episode = {
   id: "ep2",
   index: 2,
-  title: "THE PORCH",
-  subtitle: "episode ii · the cabin, the teaching, the paper",
+  title: "THE FEED",
+  subtitle: "episode ii · the daily company, the photo, the decision",
   next: "ep3",
   setup: (carry?: WorldState) => {
     let state = createWorldState({
-      startLocation: "cabin_porch",
+      startLocation: "apartment_living",
       characterIds: Object.keys(CHARACTERS),
       episodeId: "ep2",
     });
     state = characterEngine.initState(state, "chris");
-    state = characterEngine.setMood(state, "chris", "warm");
-    // Continuity: carry trust, evidence, and known facts forward from Ep1.
+    state = characterEngine.setMood(state, "chris", "charming");
     if (carry) {
       state = { ...state, characterStates: { ...state.characterStates, chris: { ...state.characterStates.chris, trust: carry.characterStates.chris?.trust ?? state.characterStates.chris.trust, knowsFactIds: [...state.characterStates.chris.knowsFactIds] } } };
       state = { ...state, evidenceIds: [...carry.evidenceIds] };
       state = { ...state, knownFacts: [...new Set([...carry.knownFacts, ...state.knownFacts])] };
-      // The discharge secret is withheld until found.
-      state = characterEngine.liftWithhold(state, "chris", "ep1.chris.with_sarge"); // already known
-      // Live contacts for this episode (Mother becomes reachable from Ep2).
+      state = characterEngine.liftWithhold(state, "chris", "ep1.feed.real");
       state = { ...state, contacts: contactsForEpisode("ep2") };
-      // Carry the phone-unlock forward so calls work after Ep1 (the hard
-      // !phoneUnlocked guard in resolveCall would otherwise block every call).
       if (carry.phoneUnlocked) state = { ...state, phoneUnlocked: true };
     }
-    state.quests["ep2.learn"] = { id: "ep2.learn", title: "Learn what Chris will teach", status: "active" };
-    state.quests["ep2.truth"] = { id: "ep2.truth", title: "Decide what to do with what you know", status: "active" };
+    state.quests["ep2.live"] = { id: "ep2.live", title: "Live with the feed", status: "active" };
+    state.quests["ep2.truth"] = { id: "ep2.truth", title: "Decide what the reconstruction is", status: "active" };
     return state;
   },
   dispatch: (action, _ctx) => {
@@ -376,5 +320,5 @@ export const EPISODE2: Episode = {
         return null;
     }
   },
-  isComplete: (state) => (state.episodeComplete ? state.endingId ?? "ep2.woods" : null),
+  isComplete: (state) => (state.episodeComplete ? state.endingId ?? "ep2.left" : null),
 };

@@ -8,8 +8,8 @@ import { CHRIS } from "../lib/characters/chris";
 
 const ALLOWED: AllowedActions = {
   verbs: ["look", "talk", "ask", "examine", "call", "sleep", "confront", "move"],
-  targetIds: ["chris", "mother", "phone", "note", "sarge"],
-  topicIds: ["sarge", "money", "sarge_fine", "mother"],
+  targetIds: ["chris", "mother", "phone", "note"],
+  topicIds: ["is_chris", "voice", "memory", "feed", "mother"],
 };
 
 function toolEngine(toolArgs: unknown | null, name = "resolve_player_action") {
@@ -41,12 +41,12 @@ describe("llm-intent resolver (hermetic)", () => {
   });
 
   it("resolves a verb from the model and keeps a valid model target", async () => {
-    const inf = toolEngine({ verb: "talk", targetId: "chris", topicId: "sarge", raw: "talk to Chris about Sarge" });
-    const a = await resolveIntentWithLLM("talk to Chris about Sarge", inf, ALLOWED);
+    const inf = toolEngine({ verb: "talk", targetId: "chris", topicId: "is_chris", raw: "talk to the feed about whether it's really Chris" });
+    const a = await resolveIntentWithLLM("talk to the feed about whether it's really Chris", inf, ALLOWED);
     expect(a).not.toBeNull();
     expect(a!.type).toBe("talk");
     expect(a!.targetId).toBe("chris");
-    expect(a!.topicId).toBe("sarge");
+    expect(a!.topicId).toBe("is_chris");
   });
 
   it("repairs a DROPPED target via the rule pass (spike finding)", async () => {

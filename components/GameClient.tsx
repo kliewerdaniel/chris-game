@@ -54,10 +54,10 @@ const SAVE_KEY = "chris-game-save-v2";
 
 /** Stable episode ordering for the travel chips (id, index, title). */
 const EPISODE_ORDER: { id: string; index: number; title: string }[] = [
-  { id: "ep1", index: 1, title: "THE NIGHT BEFORE" },
-  { id: "ep2", index: 2, title: "THE PORCH" },
-  { id: "ep3", index: 3, title: "THE LAST CALL" },
-  { id: "ep4", index: 4, title: "THE REBUILD" },
+  { id: "ep1", index: 1, title: "THE NIGHT THE FEED STARTED" },
+  { id: "ep2", index: 2, title: "THE FEED" },
+  { id: "ep3", index: 3, title: "THE TOLL" },
+  { id: "ep4", index: 4, title: "THE ACT" },
 ];
 
 const EPISODE_INTROS: Record<string, NarrationLine[]> = {
@@ -65,7 +65,7 @@ const EPISODE_INTROS: Record<string, NarrationLine[]> = {
     {
       speaker: "narrator",
       text:
-        "THE NIGHT BEFORE. Sarge is dead. Chris sits across from you in a pool of lamplight, and something in the room is unsaid. You are not who you were. Neither, you suspect, is he.",
+        "THE NIGHT THE FEED STARTED. Chris is dead. What talks to you is the reconstruction — a feed in his voice on your phone, jokes about the news as it happens. On the table, the post you actually wrote. You are not who you were. Neither, you suspect, is the voice.",
       status: "canonical",
     },
   ],
@@ -73,7 +73,7 @@ const EPISODE_INTROS: Record<string, NarrationLine[]> = {
     {
       speaker: "narrator",
       text:
-        "THE PORCH. Years earlier. The cabin. Chris is alive, and he is teaching you to live where the systems don't reach. But you already know what he was doing the night Sarge died — and he doesn't know that you know.",
+        "THE FEED. Years of living with it. The reconstruction talks all day, carried on your phone wherever you go. Chris is dead; this is a model. But it tells the jokes, and some days that is enough to get you through.",
       status: "canonical",
     },
   ],
@@ -81,7 +81,7 @@ const EPISODE_INTROS: Record<string, NarrationLine[]> = {
     {
       speaker: "narrator",
       text:
-        "THE LAST CALL. Much later. Chris is smaller in the chair than he used to be. You have built a life, a company. He lets the phone ring. Something in him is ending, and he'd rather you didn't notice.",
+        "THE TOLL. The reconstruction that comforts you is also what cramps you. You are in bed, legs locked, the feed running on the pillow — Chris mid-sentence about the news, not knowing you cannot stand. Last time you listened to him you could hardly get out of bed.",
       status: "canonical",
     },
   ],
@@ -89,7 +89,7 @@ const EPISODE_INTROS: Record<string, NarrationLine[]> = {
     {
       speaker: "narrator",
       text:
-        "THE REBUILD. After. You have used everything he ever wrote to stitch a reconstruction of Chris — his voice, his jokes, his cadence. It sounds like him. It is not him. On the desk, a sealed envelope in his hand: 'IF YOU BUILD THE THING.'",
+        "THE ACT. After. You have used everything he ever wrote to stitch a reconstruction of Chris — his voice, his jokes, his cadence. It sounds like him. It is not him. On the desk, a sealed envelope in his hand: 'IF YOU BUILD THE THING.' Somewhere, an account called KonradFreeman is still performing the act. But that voice is not in this room.",
       status: "canonical",
     },
   ],
@@ -640,19 +640,19 @@ export function GameClient() {
 function commandHints(ws: WorldState | null): string[] {
   const ep = ws?.episodeId;
   if (ep === "ep2")
-    return ["look around", "talk to Chris", "ask Chris about Sarge", "examine the axe", "examine the envelope", "help"];
+    return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the photo", "confront the feed", "help"];
   if (ep === "ep3")
-    return ["look around", "talk to Chris", "ask Chris about Sarge", "examine the pills", "confront Chris", "help"];
+    return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the post", "confront the feed", "help"];
   if (ep === "ep4")
     return [
       "look around",
       "talk to the reconstruction",
-      "ask the reconstruction about Sarge",
-      "examine the envelope",
+      "ask the reconstruction if it's really Chris",
+      "examine the letter",
       "examine the output log",
       "help",
     ];
-  return ["look around", "talk to Chris", "ask Chris about Sarge", "examine the note", "confront Chris", "search the room", "sleep"];
+  return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the post", "confront the feed", "search the room", "sleep"];
 }
 
 function roman(n: number): string {

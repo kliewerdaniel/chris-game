@@ -159,8 +159,7 @@ export interface Contradiction {
 /**
  * Surface every fact that two nodes describe incompatibly — e.g. a CANONICAL
  * fact and a TESTIMONY (or belief) that contradicts it. This is what makes
- * Chris's lies *detectable*: the board shows the note (evidence) and Chris's
- * "we were fine" claim pointing at ep1.sarge.chris_argument with incompatible
+ * The reconstruction's false "is Chris" claim pointing at ep4.rec.is_model with incompatible
  * statuses.
  */
 export function findContradictions(g: InvestigationGraph): Contradiction[] {

@@ -48,34 +48,26 @@ function detectVerb(text: string): IntentVerb | undefined {
 }
 
 const TARGET_PATTERNS: { id: string; names: string[] }[] = [
-  { id: "chris", names: ["chris", "him", "he", "kid's friend", "mentor"] },
-  { id: "sarge", names: ["sarge", "serge", "the body", "him"] },
+  { id: "chris", names: ["chris", "him", "he", "kid's friend", "reconstruction", "feed", "the voice"] },
   { id: "mother", names: ["mother", "mom", "ma", "mum"] },
-  { id: "phone", names: ["phone", "cell", "mobile", "cellphone"] },
+  { id: "phone", names: ["phone", "cell", "mobile", "cellphone", "feed"] },
   { id: "apartment", names: ["apartment", "room", "flat", "place", "home"] },
-  { id: "note", names: ["note", "paper", "letter", "page", "envelope", "envelope in my pocket", "the note"] },
-  { id: "photo", names: ["photo", "picture", "image", "polaroid"] },
-  { id: "bottle", names: ["bottle", "bottles", "drink", "empties", "pill", "pills", "medication", "medicine"] },
+  { id: "note", names: ["note", "paper", "letter", "page", "envelope", "envelope in my pocket", "the note", "post", "reddit", "source"] },
+  { id: "photo", names: ["photo", "picture", "image", "polaroid", "captain"] },
   { id: "door", names: ["door", "exit", "outside"] },
-  { id: "axe", names: ["axe", "ax", "hatchet", "woodpile", "wood"] },
-  { id: "radio", names: ["radio", "weather"] },
-  { id: "treeline", names: ["treeline", "woods", "trees", "road", "cabin"] },
   { id: "laptop", names: ["laptop", "computer", "screen", "model", "output", "log"] },
-  { id: "discharge", names: ["discharge", "envelope", "paper"] },
 ];
 
 const TOPIC_PATTERNS: { id: string; keys: string[] }[] = [
-  { id: "sarge", keys: ["sarge", "serge", "the body", "his death", "what happened", "dead"] },
-  { id: "sarge_fine", keys: ["argument", "fight", "trouble", "fine", "okay between"] },
-  { id: "money", keys: ["money", "debt", "owe", "owed", "cash", "bill"] },
+  { id: "is_chris", keys: ["is it you", "really chris", "really him", "are you chris", "is this chris", "the real chris"] },
+  { id: "voice", keys: ["voice", "really him", "is it you", "sounds like"] },
+  { id: "memory", keys: ["remember", "memory", "memories", "really him", "have you met"] },
+  { id: "cats", keys: ["captain", "cat", "cats"] },
   { id: "mother", keys: ["mother", "mom", "mum"] },
-  { id: "note", keys: ["note", "paper", "letter", "what you wrote"] },
-  { id: "the night", keys: ["last night", "tonight", "where you were", "what you did"] },
-  { id: "marine", keys: ["marine", "military", "war", "service", "army", "corps", "discharge"] },
-  { id: "cats", keys: ["captain", "cat", "cats", "alien cats"] },
-  { id: "memory", keys: ["remember", "memory", "memories", "really him"] },
-  { id: "voice", keys: ["voice", "really him", "is it you"] },
-  { id: "debt", keys: ["debt", "owe", "owed", "money"] },
+  { id: "act", keys: ["konradfreeman", "the act", "the account", "performing"] },
+  { id: "misinfo", keys: ["misinformation", "lies", "fake", "wrong"] },
+  { id: "toll", keys: ["cramps", "bed", "bedbound", "stress", "what it's doing", "what it does to me"] },
+  { id: "feed", keys: ["feed", "news", "joke", "the reconstruction"] },
 ];
 
 function matchFirst<T extends { re?: RegExp } & Record<string, any>>(

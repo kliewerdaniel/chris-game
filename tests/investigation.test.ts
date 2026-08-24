@@ -15,44 +15,29 @@ describe("investigation graph — build", () => {
     expect(g.nodes.size).toBeGreaterThan(20);
     expect(g.edges.length).toBeGreaterThan(20);
     // canonical secret fact present
-    expect(g.nodes.has("ep1.chris.with_sarge")).toBe(true);
+    expect(g.nodes.has("ep4.rec.is_model")).toBe(true);
     // evidence present
-    expect(g.nodes.has("ev_chris_note")).toBe(true);
+    expect(g.nodes.has("ev_source_post")).toBe(true);
     // character node present
     expect(g.nodes.has("char:chris")).toBe(true);
-  });
-
-  it("creates correct supports/contrs edges (note contradicts chris_argument)", () => {
-    const g = getInvestigationGraph();
-    const noteIn = g.in.get("ep1.sarge.chris_argument") ?? [];
-    const contradictByNote = noteIn.find((e) => e.from === "ev_chris_note" && e.kind === "contradicts");
-    expect(contradictByNote).toBeDefined();
   });
 });
 
 describe("investigation graph — contradictions", () => {
-  it("detects the note-vs-chris-argument contradiction", () => {
+  it("detects the reconstruction's 'I am Chris' claim contradicting the model fact", () => {
     const g = getInvestigationGraph();
     const cs = findContradictions(g);
-    const hit = cs.find((c) => c.factId === "ep1.sarge.chris_argument");
+    const hit = cs.find((c) => c.factId === "ep4.rec.is_model");
     expect(hit).toBeDefined();
-    expect(hit!.claimNodeIds).toContain("ev_chris_note");
-  });
-
-  it("detects the debt-collector truth contradicting the 'fine' claim (ep3)", () => {
-    const g = getInvestigationGraph();
-    const cs = findContradictions(g);
-    const hit = cs.find((c) => c.factId === "ep3.chris.fine");
-    expect(hit).toBeDefined();
+    expect(hit!.claimNodeIds).toContain("belief:chris.belief.is_chris");
   });
 
   it("reports corroboration verdicts, never asserts truth", () => {
     const g = getInvestigationGraph();
     const rep = corroborationReport(g);
-    const sargeDead = rep.find((r) => r.factId === "ep1.sarge.dead");
-    expect(sargeDead).toBeDefined();
-    // verbatim verdict is a corroboration-label, not a world-truth claim
-    expect(["corroborated", "contested", "un-corroborated", "canonical-only"]).toContain(sargeDead!.verdict);
+    const feedReal = rep.find((r) => r.factId === "ep1.feed.real");
+    expect(feedReal).toBeDefined();
+    expect(["corroborated", "contested", "un-corroborated", "canonical-only"]).toContain(feedReal!.verdict);
   });
 });
 
@@ -61,12 +46,10 @@ describe("investigation graph — leads", () => {
     const g = getInvestigationGraph();
     const leads = rankLeads(g);
     expect(leads.length).toBeGreaterThan(0);
-    // all returned are unresolved by status (sanity: each resolves to a fact node)
     for (const l of leads) {
       const node = g.nodes.get(l.factId);
       expect(node?.kind).toBe("fact");
     }
-    // sorted descending by degree
     for (let i = 1; i < leads.length; i++) {
       expect(leads[i - 1].degree).toBeGreaterThanOrEqual(leads[i].degree);
     }
@@ -79,23 +62,10 @@ describe("investigation graph — player overlay", () => {
     state = createWorldState({ startLocation: "apartment_living", characterIds: ["chris"] });
   });
 
-  it("hides contradictions until the player has the thread", () => {
-    const pi = playerInvestigation(state);
-    // fresh game: note not discovered, so the chris_argument contradiction is not visible
-    expect(pi.visibleContradictions.find((c) => c.factId === "ep1.sarge.chris_argument")).toBeUndefined();
-  });
-
-  it("reveals the contradiction once the note is discovered", () => {
-    state = { ...state, evidenceIds: [...state.evidenceIds, "ev_chris_note"] };
-    const pi = playerInvestigation(state);
-    const hit = pi.visibleContradictions.find((c) => c.factId === "ep1.sarge.chris_argument");
-    expect(hit).toBeDefined();
-  });
-
   it("neighborhood returns the node + touching edges", () => {
     const g = getInvestigationGraph();
-    const { node, edges } = neighborhood(g, "ev_chris_note");
-    expect(node?.id).toBe("ev_chris_note");
+    const { node, edges } = neighborhood(g, "ev_source_post");
+    expect(node?.id).toBe("ev_source_post");
     expect(edges.length).toBeGreaterThan(0);
   });
 });

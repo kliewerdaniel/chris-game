@@ -121,7 +121,7 @@ export class GameEngine {
         action,
         result: {
           ok: false,
-          reason: "I didn't catch that. Try 'look around', 'talk to Chris', or 'ask Chris about Sarge'.",
+          reason: "I didn't catch that. Try 'look around', 'talk to the feed', or 'ask the feed if it's really Chris'.",
           narration: [],
           events: [],
         },
@@ -226,15 +226,17 @@ export class GameEngine {
 
 function topicToLabel(topic: string): string {
   const map: Record<string, string> = {
-    sarge: "Sarge",
-    sarge_fine: "whether he and Sarge were really fine",
-    money: "the money",
-    mother: "your mother",
-    note: "the note",
-    "the night": "where he was that night",
-    marine: "his time in the Marines",
+    is_chris: "whether it's really Chris",
+    voice: "whether it's really his voice",
+    memory: "whether it really remembers",
+    feed: "the feed",
+    act: "the act / KonradFreeman",
+    misinfo: "the misinformation it makes",
+    toll: "what it's doing to you",
     cats: "Captain the cat",
-    general: "the night",
+    mother: "your mother",
+    note: "the post",
+    general: "the feed",
   };
   return map[topic] ?? topic;
 }

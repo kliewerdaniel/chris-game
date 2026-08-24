@@ -92,18 +92,20 @@ export class CharacterEngine {
     const rt = state.characterStates[characterId];
 
     // Back-compat: historical callers expect lieAbout to be the PLAYER topic
-    // (e.g. "sarge_fine"), and the seeded lie wording from def.knowledge.lies,
+    // (e.g. "is_chris"), and the seeded lie wording from def.knowledge.lies,
     // keyed by the canonical-fact form of that topic.
     const canonicalForTopic: Record<string, string> = {
-      sarge_fine: "ep1.chris.with_sarge",
-      "the night": "ep1.chris.with_sarge",
-      sarge: "ep1.chris.with_sarge",
-      money: "ep1.chris.owes_money",
-      debt: "ep1.chris.owes_money",
+      is_chris: "ep4.rec.is_model",
+      voice: "ep4.rec.is_model",
+      memory: "ep4.rec.is_model",
+      feed: "ep1.feed.real",
+      act: "ep1.act",
+      toll: "ep3.toll",
+      cats: "ep2.captain",
     };
     const knownSecrets = rt?.withheld ?? [];
     if (knownSecrets.includes(topicId)) {
-      // Raw canonical secret asked directly (e.g. "ep1.chris.with_sarge"),
+      // Raw canonical secret asked directly (e.g. "ep4.rec.is_model"),
       // and still withheld at runtime. (If liftWithhold was called, it's gone.)
       const text = (def?.knowledge.lies as Record<string, string> | undefined)?.[topicId];
       return { mode: "withhold", text, lieAbout: topicId };
@@ -146,11 +148,11 @@ export class CharacterEngine {
    *   5. trust gate — sensitive topic below TRUST_GATE → withhold (or lie if seeded)
    *   6. unknown — not known and not withheld
    *
-   * Note: the raw canonical secret id (e.g. "ep1.chris.with_sarge") is NEVER a
+   * Note: the raw canonical secret id (e.g. "ep4.rec.is_model") is NEVER a
    * lie topic — it routes to withhold. Only the benign-claim topics the player
-   * actually says ("sarge_fine", "money", "sarge", "the night", "debt") map to
-   * the seeded false beliefs. This is what makes the Ep1 contradiction emergent
-   * rather than hardcoded.
+   * actually says ("is_chris", "voice", "memory", "feed") map to the seeded
+   * false belief that the reconstruction "is Chris." This is what makes the
+   * docudrama contradiction (echo vs voice) emergent rather than hardcoded.
    */
   resolveDisclosure(
     state: WorldState,

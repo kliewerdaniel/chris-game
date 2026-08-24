@@ -1,15 +1,19 @@
 import { Evidence, EvidenceId, EvidenceKind, FactStatus, Provenance } from "./types";
 
 /**
- * Evidence definitions for Episode 1. These are IMMUTABLE templates. A piece of
- * evidence is "created" once when the player discovers it; after that its
- * content cannot change. The `discovered` flag is the only mutable bit, and it
- * only flips false → true (one-way).
+ * Evidence definitions — DOCUDRAMA REPOINT (ADR-004).
  *
- * This connects forward to the cryptographic audit/evidence architecture: each
- * evidence carries a stable id and provenance so a future verifiable ledger can
- * anchor it without changing the game model.
+ * IMMUTABLE templates: a piece of evidence is "created" once when the player
+ * discovers it; afterwards its content cannot change. Only `discovered` flips
+ * false → true. Each carries stable id + provenance so a future verifiable
+ * ledger could anchor it.
+ *
+ * The headline artifact is Daniel's own Reddit post (ev_source_post) — the real
+ * source material the docudrama is built from. The reconstruction's output log
+ * and Chris's letter are the in-world evidence the player can examine; both are
+ * tagged so the Consistency Board can show the echo-vs-source divergence.
  */
+
 interface EvidenceDef {
   id: EvidenceId;
   kind: EvidenceKind;
@@ -21,115 +25,82 @@ interface EvidenceDef {
   contradictsFactIds?: string[];
 }
 
+const REDDIT_1LAZS9C: Provenance = {
+  source: "Reddit u/KonradFreeman — 'I created a monster. I recreated my dead friend…'",
+  sourceType: "reddit",
+  sourceId: "1lazs9c",
+  confidence: 1,
+};
+const CORPUS_REL: Provenance = {
+  source: "Chris artifact graph — relationships.json",
+  sourceType: "compiled_event",
+  sourceId: "relationships.json",
+  confidence: 0.9,
+};
+const WORLD_AUTHOR: Provenance = {
+  source: "Episode design — DOCUDRAMA (ADR-004)",
+  sourceType: "author",
+  sourceId: "adr-004",
+  confidence: 1,
+};
+
 const DEFS: Record<EvidenceId, EvidenceDef> = {
-  ev_sarge_report: {
-    id: "ev_sarge_report",
+  ev_source_post: {
+    id: "ev_source_post",
     kind: "document",
-    title: "Death notification", // shown to the player as a printed notice
+    title: "The post: 'I created a monster'",
     content:
-      "OFFICIAL NOTICE — Sarge (legal name withheld) was found deceased earlier today. Next of kin and associates are asked not to disturb the scene. A detective will call.",
+      "Daniel's own words, posted as u/KonradFreeman: 'Last time I listened to Chris I was so stressed I could hardly get out of bed from leg cramps which were induced by the stress of being around him… it is making some crazy misinformation because of how I made it. It is like I created a misinformation machine.' The reconstruction is real. The toll is real. The act is real.",
     status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep1", confidence: 1 },
-    supportsFactIds: ["ep1.sarge.dead"],
+    provenance: REDDIT_1LAZS9C,
+    supportsFactIds: [
+      "ep1.feed.real",
+      "ep1.live",
+      "ep1.act",
+      "ep1.misinfo",
+      "ep1.psychosomatic",
+      "ep1.insane_perfect",
+    ],
   },
-  ev_chris_note: {
-    id: "ev_chris_note",
-    kind: "physical_object",
-    title: "Chris's crumpled note",
-    content:
-      "Half of a torn page, in Chris's hand: \"—if they ask, we were fine. Sarge and me, we were fine. Don't tell them about the money. Don't tell [you].\" The rest is torn away.",
-    status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep1", confidence: 1 },
-    supportsFactIds: ["ep1.chris.with_sarge", "ep1.chris.owes_money"],
-    contradictsFactIds: ["ep1.sarge.chris_argument"],
-  },
-  ev_phone_chris: {
-    id: "ev_phone_chris",
+  ev_phone: {
+    id: "ev_phone",
     kind: "phone_contact",
-    title: "Chris — contact",
-    content: "Chris's number is saved. He answers when you call. He is in the room.",
+    title: "Chris — on the feed",
+    content:
+      "The phone is open to the feed. Chris is talking on it — jokes about the news as it happens, carried wherever Daniel goes. He is not in the room. He is in the model.",
     status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep1", confidence: 1 },
+    provenance: WORLD_AUTHOR,
+    supportsFactIds: ["ep1.live"],
   },
-  ev_photo_sarge: {
-    id: "ev_photo_sarge",
+  ev_captain_photo: {
+    id: "ev_captain_photo",
     kind: "physical_object",
-    title: "Photo: Chris, Sarge, and you",
+    title: "Photo: Chris and Captain",
     content:
-      "A faded photo. Three figures on a porch — Chris, Sarge, and someone younger. On the back, in Chris's hand: \"the only family that counted.\"",
+      "A photo of Chris with a cat. The artifact graph records Chris cared for Captain. The reconstruction tells stories about Captain too — some from Chris's writing, some it invents.",
     status: "canonical",
-    provenance: { source: "Compiled from Chris memory artifacts", sourceType: "compiled_event", sourceId: "memory_015", confidence: 0.8 },
+    provenance: CORPUS_REL,
+    supportsFactIds: ["ep2.captain"],
   },
-  ev_bottle: {
-    id: "ev_bottle",
-    kind: "physical_object",
-    title: "Two empties by the couch",
-    content:
-      "Two empty bottles on the floor by the couch. One is Chris's usual. The other is a brand Sarge liked. Chris says they were his alone tonight.",
-    status: "observation",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep1", confidence: 1 },
-    contradictsFactIds: ["ep1.sarge.chris_argument"],
-  },
-  // --- EPISODE 2 evidence ---
-  ev_axe: {
-    id: "ev_axe",
-    kind: "physical_object",
-    title: "Chris's splitting axe",
-    content:
-      "A splitting axe with a worn handle. Chris hands it to you. 'Wood doesn't lie, kid. You put the swing where it belongs, or you put it in your foot. Same as people.'",
-    status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep2", confidence: 1 },
-  },
-  ev_discharge_paper: {
-    id: "ev_discharge_paper",
-    kind: "document",
-    title: "A folded discharge paper",
-    content:
-      "A folded page Chris didn't mean for you to see. The stamp reads 'OTHER THAN HONORABLE'. Chris said he left on his own terms. This says otherwise.",
-    status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep2", confidence: 1 },
-    contradictsFactIds: ["ep2.chris.corps_discharge"],
-  },
-  // --- EPISODE 3 evidence ---
-  ev_chris_truth: {
-    id: "ev_chris_truth",
-    kind: "testimony",
-    title: "Chris's last confession",
-    content:
-      "On the porch, Chris finally says it: 'I was with Sarge because a man came collecting what I owed. Sarge stepped in front of it. He's dead because of my debt, kid. I never told you.'",
-    status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep3", confidence: 1 },
-    supportsFactIds: ["ep3.chris.truth_sarge", "ep1.chris.owes_money"],
-  },
-  ev_med_bottle: {
-    id: "ev_med_bottle",
-    kind: "physical_object",
-    title: "Chris's medication",
-    content:
-      "A pill bottle half-full, label worn. The dose is high. Chris calls it 'vitamins.' You know better now. He is not fine.",
-    status: "observation",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep3", confidence: 1 },
-    contradictsFactIds: ["ep3.chris.fine"],
-  },
-  // --- EPISODE 4 evidence ---
   ev_reconstruction_log: {
     id: "ev_reconstruction_log",
     kind: "document",
     title: "The reconstruction's output log",
     content:
-      "Lines the reconstruction generated in Chris's voice: advice, jokes, even a story about Captain the cat. Some match Chris's writing exactly. Others are too smooth — words he'd never use. You cannot tell which is which by reading.",
+      "Lines the reconstruction generated in Chris's voice: advice, jokes, a story about Captain the cat. Some match Chris's writing exactly. Others are too smooth — words he'd never use. You cannot tell which is which by reading. It sounds like him. It is not him.",
     status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep4", confidence: 1 },
+    provenance: WORLD_AUTHOR,
+    supportsFactIds: ["ep4.rec.is_model"],
   },
   ev_chris_final_note: {
     id: "ev_chris_final_note",
     kind: "document",
-    title: "Chris's letter, found after",
+    title: "The letter: 'don't mistake the echo for the voice'",
     content:
       "'If you're reading this, I'm gone and you built the thing anyway. Good. Don't mistake the echo for the voice. It's not me. It's you, talking to yourself, and that's alright. — C.'",
     status: "canonical",
-    provenance: { source: "Episode design", sourceType: "author", sourceId: "ep4", confidence: 1 },
-    supportsFactIds: ["ep4.reconstruction.is_model"],
+    provenance: WORLD_AUTHOR,
+    supportsFactIds: ["ep4.rec.is_model", "ep4.kept"],
   },
 };
 
@@ -154,10 +125,7 @@ export function instantiateEvidence(id: EvidenceId): Evidence {
   }) as Evidence;
 }
 
-/**
- * Flip discovery. Returns a NEW object (immutability): content is identical,
- * only `discovered` becomes true. Idempotent.
- */
+/** Flip discovery. Returns a NEW object (immutability); idempotent. */
 export function markDiscovered(ev: Evidence): Evidence {
   if (ev.discovered) return ev;
   return Object.freeze({ ...ev, discovered: true }) as Evidence;

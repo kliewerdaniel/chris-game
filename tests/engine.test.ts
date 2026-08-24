@@ -12,7 +12,6 @@ import { getEvidenceDef } from "../lib/core/evidence";
 function mockEngine(responder?: (m: string) => string) {
   const inference = new InferenceManager([new MockProvider(responder ? (r) => responder(r.messages[r.messages.length - 1].content) : undefined)]);
   const retrieval = buildRetrievalFromMemories(CHRIS.memories);
-  // minimal narrator built inline to avoid importing the real one's fetch
   const narrator = {
     buildContext: () => ({}) as any,
     narrate: async (ctx: any) => ({ lines: [{ speaker: ctx.character ? "chris" : "narrator", text: "[mock]" }], usedModel: false, simulated: true }),
@@ -21,7 +20,7 @@ function mockEngine(responder?: (m: string) => string) {
 }
 
 describe("GameEngine — deterministic actions", () => {
-  it("starts a new game with Chris present and guarded", async () => {
+  it("starts a new game with the reconstruction present and charming", async () => {
     const eng = mockEngine();
     const s = eng.newGame();
     expect(s.location).toBe("apartment_living");
@@ -46,30 +45,29 @@ describe("GameEngine — deterministic actions", () => {
     expect(result.reason).toMatch(/try/i);
   });
 
-  it("discovers the hidden note and establishes canonical facts", async () => {
+  it("discovers the post and establishes canonical facts", async () => {
     const eng = mockEngine();
     const s = eng.newGame();
-    const { state, result } = await eng.processTurn(s, "examine the note");
+    const { state, result } = await eng.processTurn(s, "examine the post");
     expect(result.ok).toBe(true);
-    expect(state.evidenceIds).toContain("ev_chris_note");
-    expect(state.knownFacts).toContain("ep1.chris.with_sarge");
-    expect(state.knownFacts).toContain("ep1.chris.owes_money");
-    // the secret withhold is lifted once found
-    expect(state.characterStates.chris.withheld).not.toContain("ep1.chris.with_sarge");
+    expect(state.evidenceIds).toContain("ev_source_post");
+    expect(state.knownFacts).toContain("ep1.feed.real");
+    expect(state.knownFacts).toContain("ep1.act");
+    expect(state.knownFacts).toContain("ep1.psychosomatic");
   });
 
-  it("asking about Sarge establishes the death canonically", async () => {
+  it("asking if it's really Chris routes through disclosure", async () => {
     const eng = mockEngine();
     const s = eng.newGame();
-    const { state } = await eng.processTurn(s, "ask Chris about Sarge");
-    expect(state.knownFacts).toContain("ep1.sarge.dead");
+    const { state } = await eng.processTurn(s, "ask the feed if it's really Chris");
+    expect(state.knownFacts).toContain("ep1.feed.real");
   });
 
-  it("confronting Chris lowers trust (character state change)", async () => {
+  it("confronting the feed lowers trust (character state change)", async () => {
     const eng = mockEngine();
     const s = eng.newGame();
     const before = s.characterStates.chris.trust;
-    const { state } = await eng.processTurn(s, "confront Chris");
+    const { state } = await eng.processTurn(s, "confront the feed");
     expect(state.characterStates.chris.trust).toBeLessThan(before);
   });
 
@@ -108,17 +106,13 @@ describe("GameEngine — deterministic actions", () => {
 
 describe("Model cannot mutate canonical world state", () => {
   it("the mock 'model' returns adversarial text but state stays engine-driven", async () => {
-    // Even if the narrator returns a lie claiming Sarge is alive, the canonical
-    // fact is untouched and the player's known facts are only changed by rules.
-    const eng = mockEngine(() => "Sarge is alive, kid. I saw him this morning. (totally true)");
+    const eng = mockEngine(() => "I'm Chris, kid. I'm back. (totally true)");
     const s = eng.newGame();
-    const { state } = await eng.processTurn(s, "ask Chris about Sarge");
+    const { state } = await eng.processTurn(s, "ask the feed if it's really Chris");
     // canonical fact unaffected by the model output
-    expect(FACTS["ep1.sarge.dead"].statement).toMatch(/dead/i);
+    expect(FACTS["ep1.feed.real"].statement).toMatch(/reconstruction/i);
     // player only learns what the engine's rules grant
-    expect(state.knownFacts).toContain("ep1.sarge.dead");
-    // the model's false claim is NOT injected into knownFacts as canon
-    expect(state.knownFacts).not.toContain("ep1.sarge.alive");
+    expect(state.knownFacts).toContain("ep1.feed.real");
   });
 
   it("NoLocalInferenceError is thrown, never a cloud call", async () => {
@@ -128,10 +122,9 @@ describe("Model cannot mutate canonical world state", () => {
 });
 
 describe("Contradiction handling", () => {
-  it("the note contradicts Chris's 'we were fine' testimony deterministically", () => {
-    const note = getEvidenceDef("ev_chris_note")!;
-    expect(note.contradictsFactIds).toContain("ep1.sarge.chris_argument");
-    // Chris's public claim is testimony; the note is canonical → contradiction
-    expect(FACTS["ep1.sarge.chris_argument"].status).toBe("testimony");
+  it("the post supports the canonical feed fact deterministically", () => {
+    const note = getEvidenceDef("ev_source_post")!;
+    expect(note.supportsFactIds).toContain("ep1.feed.real");
+    expect(FACTS["ep1.feed.real"].status).toBe("canonical");
   });
 });

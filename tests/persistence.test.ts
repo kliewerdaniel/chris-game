@@ -16,26 +16,26 @@ function mockEngine() {
 describe("Save / Load persistence", () => {
   it("world state survives serialize → deserialize losslessly", () => {
     let s = createWorldState({ startLocation: "apartment_living", characterIds: ["chris"] });
-    s = addKnownFact(s, "ep1.sarge.dead");
-    s = { ...s, evidenceIds: ["ev_chris_note"], phoneUnlocked: true };
+    s = addKnownFact(s, "ep1.feed.real");
+    s = { ...s, evidenceIds: ["ev_source_post"], phoneUnlocked: true };
     const rt = deserializeWorldState(serializeWorldState(s));
     expect(rt).toEqual(s);
   });
 
   it("evidence discovery is preserved across a save/load cycle", () => {
     let s = createWorldState({ startLocation: "x", characterIds: [] });
-    const ev = markDiscovered(instantiateEvidence("ev_chris_note"));
+    const ev = markDiscovered(instantiateEvidence("ev_source_post"));
     s = { ...s, evidenceIds: [ev.id] };
     const recovered = deserializeWorldState(serializeWorldState(s));
-    expect(recovered.evidenceIds).toContain("ev_chris_note");
+    expect(recovered.evidenceIds).toContain("ev_source_post");
   });
 
   it("a played episode state can be resumed and continued", async () => {
     const eng = mockEngine();
     let s = eng.newGame();
-    const r1 = await eng.processTurn(s, "examine the note");
+    const r1 = await eng.processTurn(s, "examine the post");
     s = r1.state;
-    expect(s.evidenceIds).toContain("ev_chris_note");
+    expect(s.evidenceIds).toContain("ev_source_post");
     // serialize, deserialize (simulating reload), continue playing
     const restored = deserializeWorldState(serializeWorldState(s));
     const r2 = await eng.processTurn(restored, "sleep");

@@ -47,7 +47,7 @@ describe("TravelJournal — non-destructive rewind", () => {
   it("marks complete but does NOT unlock free travel until ep4 closes", () => {
     let j = createJournal();
     j = captureLive(j, stateFor("ep1", [], []));
-    j = markComplete(j, stateFor("ep1", ["ep1.chris.with_sarge"], ["ev_chris_note"]));
+    j = markComplete(j, stateFor("ep1", ["ep1.feed.real"], ["ev_source_post"]));
     expect(j.snapshots.ep1.isComplete).toBe(true);
     expect(isFreeTravel(j)).toBe(false); // not ep4
     // ep1 is complete -> revisit-able even though still forward-only
@@ -67,9 +67,9 @@ describe("TravelJournal — non-destructive rewind", () => {
 
   it("restore returns a clone, so callers can't mutate the stored snapshot", () => {
     let j = createJournal();
-    j = captureLive(j, stateFor("ep1", [], ["ev_chris_note"]));
+    j = captureLive(j, stateFor("ep1", [], ["ev_source_post"]));
     const snap = restore(j, "ep1")!;
-    expect(snap.evidenceIds).toContain("ev_chris_note");
+    expect(snap.evidenceIds).toContain("ev_source_post");
     snap.evidenceIds.push("TAMPER");
     expect(j.snapshots.ep1.state.evidenceIds).not.toContain("TAMPER");
   });
@@ -84,37 +84,36 @@ describe("TravelJournal — non-destructive rewind", () => {
 
 describe("aggregateInvestigation — cross-timeline board", () => {
   it("returns single-timeline shape when given one state (episodeId preserved)", () => {
-    const ws = stateFor("ep1", ["ep1.chris.with_sarge"], ["ev_chris_note"]);
+    const ws = stateFor("ep1", ["ep1.feed.real"], ["ev_source_post"]);
     const agg = aggregateInvestigation([ws]);
     expect(agg.episodeId).toBe("all");
     expect(agg.timelines).toEqual(["ep1"]);
-    expect(agg.established).toContain("ep1.chris.with_sarge");
-    expect(agg.discovered).toContain("ev_chris_note");
+    expect(agg.established).toContain("ep1.feed.real");
+    expect(agg.discovered).toContain("ev_source_post");
   });
 
   it("unions established/discovered across timelines", () => {
-    const a = stateFor("ep1", ["ep1.chris.with_sarge"], ["ev_chris_note"]);
-    const b = stateFor("ep4", ["ep4.reconstruction.is_model"], ["ev_chris_final_note"]);
+    const a = stateFor("ep1", ["ep1.feed.real"], ["ev_source_post"]);
+    const b = stateFor("ep4", ["ep4.rec.is_model"], ["ev_chris_final_note"]);
     const agg = aggregateInvestigation([a, b]);
-    expect(agg.established).toContain("ep1.chris.with_sarge");
-    expect(agg.established).toContain("ep4.reconstruction.is_model");
-    expect(agg.discovered).toContain("ev_chris_note");
+    expect(agg.established).toContain("ep1.feed.real");
+    expect(agg.established).toContain("ep4.rec.is_model");
+    expect(agg.discovered).toContain("ev_source_post");
     expect(agg.discovered).toContain("ev_chris_final_note");
     expect(agg.timelines).toEqual(["ep1", "ep4"]);
   });
 
   it("corroboration rows carry the timelines they appeared in", () => {
-    const a = stateFor("ep1", ["ep1.chris.with_sarge"], []);
-    const b = stateFor("ep4", ["ep1.chris.with_sarge"], []);
+    const a = stateFor("ep1", ["ep1.feed.real"], []);
+    const b = stateFor("ep4", ["ep1.feed.real"], []);
     const agg = aggregateInvestigation([a, b]);
-    const row = agg.corroboration.find((c) => c.factId === "ep1.chris.with_sarge");
+    const row = agg.corroboration.find((c) => c.factId === "ep1.feed.real");
     expect(row).toBeDefined();
     expect(row!.timelines).toEqual(["ep1", "ep4"]);
   });
 
   it("does not assert a world-truth — only merges corroboration/divergence metadata", () => {
-    // sanity: aggregate output is deterministic and free of any 'truth' verb.
-    const a = stateFor("ep1", [], ["ev_chris_note"]);
+    const a = stateFor("ep1", [], ["ev_source_post"]);
     const agg = aggregateInvestigation([a]);
     expect(agg.visibleContradictions.every((c) => typeof c.report === "string")).toBe(true);
   });
@@ -127,10 +126,10 @@ describe("aggregateInvestigation — cross-timeline board", () => {
   });
 
   it("per-episode payload shape is backward compatible with the endpoint", () => {
-    const ws = stateFor("ep2", ["ep2.chris.corps_discharge"], ["ev_axe"]);
+    const ws = stateFor("ep2", ["ep2.captain"], ["ev_captain_photo"]);
     const p = buildInvestigationPayload(ws);
     expect(p.episodeId).toBe("ep2");
-    expect(p.established).toContain("ep2.chris.corps_discharge");
-    expect(p.discovered).toContain("ev_axe");
+    expect(p.established).toContain("ep2.captain");
+    expect(p.discovered).toContain("ev_captain_photo");
   });
 });

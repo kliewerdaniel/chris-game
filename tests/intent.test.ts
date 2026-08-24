@@ -8,28 +8,28 @@ describe("Intent parser (deterministic, no LLM)", () => {
     expect(isConfident(a)).toBe(true);
   });
 
-  it("parses talk to Chris", () => {
-    const a = parseAction("talk to Chris");
+  it("parses talk to the feed", () => {
+    const a = parseAction("talk to the feed");
     expect(a.type).toBe("talk");
     expect(a.targetId).toBe("chris");
     expect(isConfident(a)).toBe(true);
   });
 
-  it("parses ask Chris about Sarge", () => {
-    const a = parseAction("ask Chris what happened to Sarge");
+  it("parses ask the feed if it's really Chris", () => {
+    const a = parseAction("ask the feed if it's really Chris");
     expect(a.type).toBe("ask");
     expect(a.targetId).toBe("chris");
-    expect(a.topicId).toBe("sarge");
+    expect(a.topicId).toBe("is_chris");
   });
 
-  it("parses examine the note", () => {
-    const a = parseAction("examine the note on the floor");
+  it("parses examine the post", () => {
+    const a = parseAction("examine the post on the table");
     expect(a.type).toBe("examine");
     expect(a.targetId).toBe("note");
   });
 
-  it("parses confront Chris", () => {
-    const a = parseAction("confront Chris about the truth");
+  it("parses confront the feed", () => {
+    const a = parseAction("confront the feed about the truth");
     expect(a.type).toBe("confront");
   });
 
@@ -62,20 +62,19 @@ describe("Intent parser (deterministic, no LLM)", () => {
   });
 
   it("captures modifiers like angrily", () => {
-    const a = parseAction("angrily confront Chris");
+    const a = parseAction("angrily confront the feed");
     expect(a.intent.modifiers).toContain("angrily");
   });
 
-  it("parses 'ask Chris about the Marines' as marine topic, not mother", () => {
-    const a = parseAction("ask Chris about the Marines");
+  it("parses 'ask about Captain' as cats topic, not mother", () => {
+    const a = parseAction("ask the feed about Captain the cat");
     expect(a.type).toBe("ask");
     expect(a.targetId).toBe("chris");
-    expect(a.topicId).toBe("marine");
+    expect(a.topicId).toBe("cats");
   });
 
-  it("still parses 'ask Chris about mother' as mother topic", () => {
-    const a = parseAction("ask Chris about his mother");
+  it("still parses 'ask about mother' as mother topic", () => {
+    const a = parseAction("ask the feed about his mother");
     expect(a.topicId).toBe("mother");
   });
 });
-
