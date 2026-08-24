@@ -71,13 +71,14 @@ export async function POST(req: NextRequest) {
     state = getEngine().newGame();
   }
 
-  const { state: next, result } = await getEngine().processTurn(state, body.input);
+  const { state: next, result, action } = await getEngine().processTurn(state, body.input);
   const ep = EPISODES[next.episodeId];
 
   return NextResponse.json({
     state: serializeWorldState(next),
     narration: result.narration,
     ok: result.ok,
+    action: { type: action.type, targetId: action.targetId ?? null, topicId: action.topicId ?? null, raw: action.raw },
     reason: result.reason,
     discoveredEvidence: result.discoveredEvidence ?? [],
     establishedFacts: result.establishedFacts ?? [],

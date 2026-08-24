@@ -155,3 +155,27 @@ export function isConfident(action: GameAction): boolean {
   if (action.type === "call") return !!action.targetId;
   return false;
 }
+
+/**
+ * Re-derive `targetId`/`topicId` from raw text using the deterministic rule
+ * matchers. Used to repair ids the LLM resolver dropped or mis-cased.
+ * Returns only the fields it found (so an LLM-supplied valid id is preserved
+ * when the rule pass is silent).
+ */
+export function resolveTargetTopicFromText(raw: string): {
+  targetId?: string;
+  topicId?: string;
+} {
+  const text = raw.trim();
+  const target = matchFirst(text, TARGET_PATTERNS as any);
+  const topic = matchFirst(text, TOPIC_PATTERNS as any);
+  const out: { targetId?: string; topicId?: string } = {};
+  if (target?.id) out.targetId = target.id;
+  if (topic?.id) out.topicId = topic.id;
+  return out;
+}
+
+/** The closed universe of target ids the rule matcher can resolve. */
+export const RESOLVABLE_TARGET_IDS: string[] = TARGET_PATTERNS.map((t) => t.id);
+/** The closed universe of topic ids the rule matcher can resolve. */
+export const RESOLVABLE_TOPIC_IDS: string[] = TOPIC_PATTERNS.map((t) => t.id);

@@ -10,7 +10,8 @@ import { CharacterEngine, characterEngine } from "../characters/engine";
 import { Retrieval, buildRetrievalFromMemories } from "../retrieval/retrieval";
 import { Narrator } from "../narrative/narrator";
 import { InferenceManager } from "../inference/provider";
-import { parseAction, isConfident } from "../inference/intent";
+import { parseAction, isConfident, RESOLVABLE_TARGET_IDS, RESOLVABLE_TOPIC_IDS } from "../inference/intent";
+import { resolveIntentWithLLM, AllowedActions, ALL_VERBS } from "../inference/llm-intent";
 import { Episode, EpisodeContext } from "../core/episode";
 import { EPISODE1 } from "./episode1";
 import { EPISODE2 } from "./episode2";
@@ -56,6 +57,27 @@ export class GameEngine {
   }
 
   /**
+   * The closed id-space the LLM resolver is allowed to emit for this episode:
+   * verbs the episode can handle, plus the reachable target/topic ids derived
+   * from live world state (contacts, evidence) and the deterministic rule
+   * matcher's known ids. Keeps the model's output inside what the engine can
+   * actually execute (ADR-002 epistemic boundary).
+   */
+  private allowedFor(state: WorldState, ep: Episode): AllowedActions {
+    const verbs = ALL_VERBS;
+    const targetIds = Array.from(
+      new Set([
+        ...RESOLVABLE_TARGET_IDS,
+        ...state.contacts.map((c) => c.id),
+        ...state.evidenceIds.map((e) => String(e)),
+        ...Object.keys(state.characterStates),
+      ])
+    );
+    const topicIds = [...RESOLVABLE_TOPIC_IDS];
+    return { verbs, targetIds, topicIds };
+  }
+
+  /**
    * Transition to the next episode, carrying continuity forward. Returns the
    * new episode's starting state (which itself imports the prior episode's
    * trust/evidence/knownFacts via its `setup(carry)`).
@@ -73,12 +95,30 @@ export class GameEngine {
    *   input → parse → validate → episode dispatch → (voice) → narration →
    *   OUTPUT VALIDATION → (state transition already applied by episode).
    */
-  async processTurn(state: WorldState, raw: string): Promise<{ state: WorldState; result: ActionResult }> {
-    const action = parseAction(raw);
+  async processTurn(state: WorldState, raw: string): Promise<{ state: WorldState; result: ActionResult; action: GameAction }> {
+    // ADR-002: LLM is the primary resolver when opted in (CHRIS_USE_LLM_PARSE=1)
+    // and a local model is reachable. The rule parser (`parseAction`) is ALWAYS
+    // the fallback, and remains the default/offline path. The LLM's proposed
+    // action is validated below against ep.dispatch EXACTLY like a rule output —
+    // it is never trusted to mutate state directly.
+    const ep = this.getEpisode(state);
+    let action = parseAction(raw);
+
+    if (process.env.CHRIS_USE_LLM_PARSE === "1" && this.deps.inference) {
+      const allowed = this.allowedFor(state, ep);
+      const llmAction = await resolveIntentWithLLM(raw, this.deps.inference, allowed);
+      // Accept the LLM action only if the episode can actually handle its verb
+      // (ep.dispatch returns a handler). Otherwise keep the rule output.
+      const probe: EpisodeContext = { engine: this.engineApi(), ce: this.ce };
+      if (llmAction && ep.dispatch(llmAction, probe)) {
+        action = llmAction;
+      }
+    }
 
     if (!isConfident(action)) {
       return {
         state,
+        action,
         result: {
           ok: false,
           reason: "I didn't catch that. Try 'look around', 'talk to Chris', or 'ask Chris about Sarge'.",
@@ -88,7 +128,6 @@ export class GameEngine {
       };
     }
 
-    const ep = this.getEpisode(state);
     const ctx: EpisodeContext = { engine: this.engineApi(), ce: this.ce };
     const handler = ep.dispatch(action, ctx);
 
@@ -96,6 +135,7 @@ export class GameEngine {
       // No handler for this verb in the active episode.
       return {
         state,
+        action,
         result: {
           ok: false,
           reason: "You can't do that here. Try 'look around' or 'help'.",
@@ -122,7 +162,7 @@ export class GameEngine {
       }
     }
 
-    return { state: next, result };
+    return { state: next, result, action };
   }
 
   private engineApi() {

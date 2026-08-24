@@ -27,12 +27,36 @@ export interface ChatMessage {
   content: string;
 }
 
+/** A tool (function) the model may call to emit structured output. */
+export interface ChatTool {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+/** A single tool invocation returned by the model. `arguments` is a JSON string. */
+export interface ChatToolCall {
+  name: string;
+  arguments: string;
+}
+
+export type ToolChoice =
+  | "auto"
+  | "none"
+  | { type: "function"; function: { name: string } };
+
 export interface InferenceRequest {
   model?: string;
   messages: ChatMessage[];
   temperature?: number;
   maxTokens?: number;
   stop?: string[];
+  /** closed-schema tools for structured (intent) output. */
+  tools?: ChatTool[];
+  toolChoice?: ToolChoice;
 }
 
 export interface InferenceResult {
@@ -41,6 +65,8 @@ export interface InferenceResult {
   provider: string;
   /** true only for mocked/stub responses. */
   simulated: boolean;
+  /** populated when the model emits tool/function calls. */
+  toolCalls?: ChatToolCall[];
 }
 
 export interface EmbeddingRequest {
@@ -91,6 +117,10 @@ abstract class BaseHttpProvider implements InferenceProvider {
       chat_template_kwargs: { enable_thinking: false },
       stop: req.stop,
     };
+    if (req.tools && req.tools.length) {
+      (body as Record<string, unknown>).tools = req.tools;
+      (body as Record<string, unknown>).tool_choice = req.toolChoice ?? "auto";
+    }
     const res = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -100,10 +130,17 @@ abstract class BaseHttpProvider implements InferenceProvider {
       throw new Error(`${this.name} chat failed: ${res.status} ${await res.text().catch(() => "")}`);
     }
     const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: { message?: { content?: string; tool_calls?: any[] } }[];
     };
     const text = data.choices?.[0]?.message?.content ?? "";
-    return { text, provider: this.name, simulated: false };
+    const tcs = data.choices?.[0]?.message?.tool_calls;
+    const toolCalls = Array.isArray(tcs)
+      ? tcs.map((t: any) => ({
+          name: t?.function?.name ?? "",
+          arguments: t?.function?.arguments ?? "{}",
+        }))
+      : undefined;
+    return { text, provider: this.name, simulated: false, toolCalls };
   }
 }
 
@@ -130,11 +167,26 @@ export class OllamaChatProvider extends BaseHttpProvider {
         messages: req.messages,
         stream: false,
         options: { temperature: req.temperature ?? 0.7, num_predict: req.maxTokens ?? 320 },
+        ...(req.tools && req.tools.length
+          ? { tools: req.tools, tool_choice: req.toolChoice ?? "auto" }
+          : {}),
       }),
     });
     if (!res.ok) throw new Error(`ollama chat failed: ${res.status}`);
-    const data = (await res.json()) as { message?: { content?: string } };
-    return { text: data.message?.content ?? "", provider: this.name, simulated: false };
+    const data = (await res.json()) as {
+      message?: { content?: string; tool_calls?: any[] };
+    };
+    const tcs = data.message?.tool_calls;
+    const toolCalls = Array.isArray(tcs)
+      ? tcs.map((t: any) => ({
+          name: t?.function?.name ?? "",
+          arguments:
+            typeof t?.function?.arguments === "string"
+              ? t.function.arguments
+              : JSON.stringify(t?.function?.arguments ?? {}),
+        }))
+      : undefined;
+    return { text: data.message?.content ?? "", provider: this.name, simulated: false, toolCalls };
   }
   async embed(req: EmbeddingRequest): Promise<number[]> {
     const res = await fetch(`${this.baseUrl}/api/embeddings`, {
@@ -152,8 +204,17 @@ export class OllamaChatProvider extends BaseHttpProvider {
 export class MockProvider implements InferenceProvider {
   readonly name = "mock";
   readonly local = true;
-  constructor(private responder?: (req: InferenceRequest) => string) {}
+  constructor(
+    private responder?: (req: InferenceRequest) => string,
+    private toolResponder?: (req: InferenceRequest) => ChatToolCall[] | null
+  ) {}
   async chat(req: InferenceRequest): Promise<InferenceResult> {
+    if (this.toolResponder) {
+      const tcs = this.toolResponder(req);
+      if (tcs && tcs.length) {
+        return { text: "", provider: this.name, simulated: true, toolCalls: tcs };
+      }
+    }
     const last = req.messages[req.messages.length - 1]?.content ?? "";
     const text = this.responder
       ? this.responder(req)
@@ -178,7 +239,12 @@ export class InferenceManager {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const r = await p.chat(req);
-          if (r.text && r.text.trim().length > 0) return r;
+          // A tool/function call is a valid completion even when `text` is
+          // empty (the model returns tool_calls with no content, which is the
+          // normal shape for structured/intent output).
+          if ((r.text && r.text.trim().length > 0) || (r.toolCalls && r.toolCalls.length > 0)) {
+            return r;
+          }
           // Reasoning models can occasionally emit only thinking tokens; retry
           // once with a larger budget before giving up on this provider.
         } catch (e) {
