@@ -167,6 +167,8 @@ export interface WorldState {
   endingId?: string;
   /** deterministic world events already fired this playthrough (idempotency). */
   firedEventIds?: string[];
+  /** ADR-005: rolling conversation transcript the riff loop reads (player + model lines). */
+  conversationLog: Exchange[];
 }
 
 export interface CharacterRuntimeState {
@@ -188,6 +190,8 @@ export interface CharacterRuntimeState {
   recentlyConfronted: boolean;
   /** flags for character-specific state (e.g. "contradicted_self"). */
   flags: Record<string, boolean | number | string>;
+  /** ADR-005: last ≤4 model response texts, for the uniqueness guard in the riff loop. */
+  recentlySaid: string[];
 }
 
 export interface GameEvent {
@@ -230,6 +234,23 @@ export interface Evidence {
 }
 
 // ---------------------------------------------------------------------------
+// Conversation log (ADR-005) — the rolling memory the riff loop reads.
+// ---------------------------------------------------------------------------
+export interface Exchange {
+  turn: number;
+  /** who spoke this line. */
+  speaker: CharacterId | "player" | "narrator";
+  /** the verb that produced it (for player turns; undefined for model lines). */
+  verb?: IntentVerb;
+  /** the disclosure topic, when this exchange was a disclosure turn. */
+  topicId?: string;
+  /** the handling the engine DECIDED (rule-only) — never the model's choice. */
+  handling?: DisclosureMode;
+  text: string;
+  ts: { day: number; hour: number; minute: number };
+}
+
+// ---------------------------------------------------------------------------
 // Actions & intents
 // ---------------------------------------------------------------------------
 export type IntentVerb =
@@ -248,6 +269,7 @@ export type IntentVerb =
   | "inventory"
   | "evidence"
   | "help"
+  | "chat" // ADR-005: free-form conversational turn (riff loop)
   | "unknown";
 
 export interface Intent {

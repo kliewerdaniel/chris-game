@@ -35,7 +35,8 @@ export function createWorldState(opts: {
       goals: [],
       askedTopics: {},
       recentlyConfronted: false,
-    };
+      recentlySaid: [],
+    } as WorldState["characterStates"][string];
   }
   return {
     version: WORLD_STATE_VERSION,
@@ -62,6 +63,7 @@ export function createWorldState(opts: {
     episodeId: opts.episodeId ?? "ep1",
     progression: 0,
     episodeComplete: false,
+    conversationLog: [],
   };
 }
 

@@ -44,6 +44,7 @@ export class CharacterEngine {
       }))),
       askedTopics: {},
       recentlyConfronted: false,
+      recentlySaid: [],
       flags: {},
     };
     return {

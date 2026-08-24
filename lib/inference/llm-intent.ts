@@ -50,6 +50,7 @@ export const ALL_VERBS: IntentVerb[] = [
   "inventory",
   "evidence",
   "help",
+  "chat",
 ];
 
 /** Build the single-function tool schema, constrained to `allowed`. */

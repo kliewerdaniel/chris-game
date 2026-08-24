@@ -28,6 +28,8 @@ const VERB_PATTERNS: { verb: IntentVerb; words: string[]; starts?: boolean }[] =
   { verb: "look", words: ["look", "describe", "where am i", "what is around", "what's around", "what is here"] },
   { verb: "wait", words: ["wait", "sit", "pause", "hold on", "stand"] },
   { verb: "tell", words: ["tell", "let him know", "let her know", "inform"] },
+  // ADR-005: free-form conversational turn. "say"/"chat"/"tell him" map here.
+  { verb: "chat", words: ["say", "chat", "tell him", "tell her", "i say", "i tell"] },
 ];
 
 /** Position-based verb detection: choose the verb whose trigger word appears
@@ -146,6 +148,7 @@ export function isConfident(action: GameAction): boolean {
   if (action.type === "confront") return true;
   if (action.type === "call") return !!action.targetId;
   if (action.type === "tell") return true;
+  if (action.type === "chat") return true; // ADR-005: free-form, always confident
   return false;
 }
 
