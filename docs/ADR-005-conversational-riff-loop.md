@@ -1,6 +1,6 @@
 # ADR-005 — Conversational Riff Loop
 
-- **Status:** Proposed
+- **Status:** Implemented (5A–5D complete, local commits `6637eaf`→`69dc365`→`bcc488a`)
 - **Date:** 2026-08-24
 - **Supersedes:** — (adds a capability; does not replace ADR-001/002/004)
 - **Author:** Hermes (for Daniel Kliewer)
@@ -227,7 +227,39 @@ never used to vary a boundary turn. This preserves the docudrama contradiction
 - `lib/core/world.ts`: initialize new fields in `createWorldState`.
 
 Phase split (each its own commit, per ADR-gated discipline):
-- **5A** — state + verb + types (no behavior change; tests for serialization).
-- **5B** — `dialogue.ts` shared chat resolver + episode routing.
-- **5C** — Narrator riff (history window, freeRiff, uniqueness guard).
-- **5D** — default-on LLM topic extraction for chat + fail-closed tests.
+- **5A** (`6637eaf`) — state + verb + types (no behavior change; tests for serialization).
+- **5B** (`69dc365`) — `dialogue.ts` shared chat resolver + episode routing.
+- **5C + 5D** (`bcc488a`) — Narrator riff (history window, freeRiff, uniqueness guard) +
+  offline topic enrichment + the root-cause narrate fix.
+
+### 5E. Implementation outcome / deviations
+
+- **5D deviation (intentional, boundary-preserving):** the design called for a
+  *separate* default-on LLM topic path for chat. That was rejected in favor of
+  reusing the existing `CHRIS_USE_LLM_PARSE=1` opt-in resolver (already
+  fail-closed to rules) plus an **offline rule enrichment** in `resolveChat`
+  (`resolveTargetTopicFromText` second pass → `general` fallback). Rationale:
+  a second always-on model path would risk the model-down cliff in production
+  and undermine the "no cloud fallback / model-down → deterministic" rule. The
+  chat channel therefore maps topics offline by default and upgrades to LLM
+  topic extraction only when the operator opts in. Behavior matches the
+  acceptance criteria (topic still reaches `resolveDisclosure`; model never
+  changes the *mode*).
+- **Root-cause fix during 5C:** `narrate` originally treated `truth`/`unknown`
+  (open) modes as *needing a seed*, so unseeded chat banter fail-closed to the
+  deterministic "doesn't answer" line instead of riffing. Corrected: only the
+  five BOUNDARY modes (lie/withhold/deflect/threaten/partial) require a seed;
+  open modes free-riff without one. Boundary turns remain seed-locked; open
+  banter improvises in voice (still cannot author world-canon, because there
+  is no canon to assert on a `general`/`feed` news riff).
+- **Verb precedence:** `chat` moved to the top of `VERB_PATTERNS` so
+  continuations ("go on", "tell me more", "keep going", "say", "chat") win over
+  the bare `move` ("go") and `tell` verbs at position 0.
+
+### Verification (live, against ornith @ :8080)
+- tsc clean; 138 vitest green (unchanged baseline).
+- Manual gate (§5.8) satisfied: five consecutive `chat` phrases on the news
+  produced five *distinct* in-voice riffs; "go on" / "keep going" continued the
+  riff; `chat about whether it's really Chris` routed to `is_chris` and
+  DEFLECTED (boundary intact — no secret leaked). The rolling window +
+  uniqueness ring were observed to accumulate across turns.
