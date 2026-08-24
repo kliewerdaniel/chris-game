@@ -253,7 +253,7 @@ export type IntentVerb =
 export interface Intent {
   verb: IntentVerb;
   target?: string; // character or object name
-  topic?: string; // what the talk/ask is about (e.g. "Sarge")
+  topic?: string; // what the talk/ask is about (e.g. "is_chris")
   modifiers?: string[]; // e.g. "angrily", "quietly"
 }
 

@@ -153,7 +153,7 @@ export function isConfident(action: GameAction): boolean {
  * Re-derive `targetId`/`topicId` from raw text using the deterministic rule
  * matchers. Used to repair ids the LLM resolver dropped or mis-cased.
  * VERB-AWARE: when the verb is known (talk/ask/confront/tell/call), character
- * names ("chris", "sarge", "mother", "phone") are resolved as targets; for
+ * names ("chris", "mother", "phone") are resolved as targets; for
  * examine/search/use the player is naming an OBJECT, so character-name matches
  * are suppressed (e.g. "examine the letter Chris left" must target `note`,
  * not `chris`). This prevents the first-array-match rule from mis-binding a
@@ -161,7 +161,7 @@ export function isConfident(action: GameAction): boolean {
  * Returns only the fields it found (so an LLM-supplied valid id is preserved
  * when the rule pass is silent).
  */
-const CHARACTER_TARGET_IDS = new Set(["chris", "sarge", "mother", "phone"]);
+const CHARACTER_TARGET_IDS = new Set(["chris", "mother", "phone"]);
 
 export function resolveTargetTopicFromText(
   raw: string,
