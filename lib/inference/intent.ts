@@ -1,0 +1,149 @@
+import { Intent, IntentVerb, GameAction } from "../core/types";
+
+/**
+ * Deterministic natural-language intent parser.
+ *
+ * This is RULE-BASED, not an LLM call. It maps player text to a structured
+ * Intent. If it cannot parse confidently, it returns an "unknown" intent that
+ * the engine handles gracefully (asks for clarification) — the LLM is NOT used
+ * to parse, because parsing is a state-affecting step and must be deterministic.
+ *
+ * Verbs supported: look, talk, ask, examine, search, move, use, call, confront,
+ * sleep, tell, wait, inventory, evidence, help.
+ */
+
+const VERB_PATTERNS: { verb: IntentVerb; words: string[]; starts?: boolean }[] = [
+  { verb: "help", words: ["help", "commands", "what can i do"], starts: true },
+  { verb: "inventory", words: ["inventory", "what do i have", "what do i carry", "items"] },
+  { verb: "evidence", words: ["evidence", "notebook", "case file", "show me the evidence"] },
+  { verb: "sleep", words: ["sleep", "rest", "lie down", "go to sleep", "get some sleep", "turn in"] },
+  { verb: "confront", words: ["confront", "accuse", "call him out", "demand the truth", "tell him the truth"] },
+  { verb: "call", words: ["call", "dial", "text", "ring"] },
+  { verb: "examine", words: ["examine", "look at", "read", "open", "study", "observe", "inspect", "check"] },
+  { verb: "search", words: ["search", "rummage", "look through", "go through", "hunt for", "look for", "find"] },
+  { verb: "talk", words: ["talk", "speak", "chat", "say to", "say hi", "greet", "approach"] },
+  { verb: "ask", words: ["ask", "what happened", "tell me about", "do you know", "why", "who", "when", "where", "how"] },
+  { verb: "move", words: ["go", "leave", "walk", "move", "exit", "enter", "head", "step"] },
+  { verb: "use", words: ["use", "wield", "operate", "turn on", "switch on", "take", "grab", "pick up", "pocket"] },
+  { verb: "look", words: ["look", "describe", "where am i", "what is around", "what's around", "what is here"] },
+  { verb: "wait", words: ["wait", "sit", "pause", "hold on", "stand"] },
+  { verb: "tell", words: ["tell", "let him know", "let her know", "inform"] },
+];
+
+/** Position-based verb detection: choose the verb whose trigger word appears
+ *  earliest in the text, so "examine the phone" reads as examine, not call. */
+function detectVerb(text: string): IntentVerb | undefined {
+  const lower = text.toLowerCase();
+  let best: { verb: IntentVerb; pos: number } | undefined;
+  for (const v of VERB_PATTERNS) {
+    for (const w of v.words) {
+      const idx = lower.indexOf(w);
+      if (idx === -1) continue;
+      // `starts` verbs only count when at the beginning (e.g. bare "help").
+      if (v.starts && idx > 0) continue;
+      if (!best || idx < best.pos) best = { verb: v.verb, pos: idx };
+    }
+  }
+  return best?.verb;
+}
+
+const TARGET_PATTERNS: { id: string; names: string[] }[] = [
+  { id: "chris", names: ["chris", "him", "he", "kid's friend", "mentor"] },
+  { id: "sarge", names: ["sarge", "serge", "the body", "him"] },
+  { id: "mother", names: ["mother", "mom", "ma", "mum"] },
+  { id: "phone", names: ["phone", "cell", "mobile", "cellphone"] },
+  { id: "apartment", names: ["apartment", "room", "flat", "place", "home"] },
+  { id: "note", names: ["note", "paper", "letter", "page"] },
+  { id: "photo", names: ["photo", "picture", "image", "polaroid"] },
+  { id: "bottle", names: ["bottle", "bottles", "drink", "empties"] },
+  { id: "door", names: ["door", "exit", "outside"] },
+];
+
+const TOPIC_PATTERNS: { id: string; keys: string[] }[] = [
+  { id: "sarge", keys: ["sarge", "serge", "the body", "his death", "what happened", "dead"] },
+  { id: "sarge_fine", keys: ["argument", "fight", "trouble", "fine", "okay between"] },
+  { id: "money", keys: ["money", "debt", "owe", "owed", "cash", "bill"] },
+  { id: "mother", keys: ["mother", "mom", "ma", "mum"] },
+  { id: "note", keys: ["note", "paper", "letter", "what you wrote"] },
+  { id: "the night", keys: ["last night", "tonight", "where you were", "what you did"] },
+  { id: "marine", keys: ["marine", "military", "war", "service", "army"] },
+  { id: "cats", keys: ["captain", "cat", "cats", "alien cats"] },
+];
+
+function matchFirst<T extends { re?: RegExp } & Record<string, any>>(
+  text: string,
+  items: T[]
+): T | undefined {
+  const lower = text.toLowerCase();
+  for (const it of items) {
+    if (it.re && it.re.test(text)) return it;
+    for (const k of it.keys ?? it.names ?? []) {
+      // Word-boundary match so "the" doesn't match "he" / "chris's" still matches.
+      const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`\\b${escaped}(\\b|'s)?`, "i");
+      if (re.test(lower)) return it;
+    }
+  }
+  return undefined;
+}
+
+export function parseIntent(raw: string): Intent {
+  const text = raw.trim();
+  const verbMatch = detectVerb(text);
+  const targetMatch = matchFirst(text, TARGET_PATTERNS as any);
+  const topicMatch = matchFirst(text, TOPIC_PATTERNS as any);
+
+  // "look around" / "look" with no object → pure look
+  if (/^\s*look\s*(around|round)?\s*$/i.test(text)) {
+    return { verb: "look" };
+  }
+  if (/^\s*go\s+(to\s+)?(sleep|bed)\s*$/i.test(text)) {
+    return { verb: "sleep" };
+  }
+
+  const verb: IntentVerb = verbMatch ?? "unknown";
+  const modifiers: string[] = [];
+  if (/\b(angrily|angry|mad|loud|quietly|softly|carefully|gently)\b/i.test(text)) {
+    const m = text.match(/\b(angrily|angry|mad|loud|quietly|softly|carefully|gently)\b/i);
+    if (m) modifiers.push(m[1].toLowerCase());
+  }
+
+  return {
+    verb,
+    target: targetMatch?.id,
+    topic: topicMatch?.id,
+    modifiers,
+  };
+}
+
+/**
+ * Build a GameAction from raw text. Resolution of ids to actual entities is
+ * done by the engine (which owns the world); the parser only proposes.
+ */
+export function parseAction(raw: string): GameAction {
+  const intent = parseIntent(raw);
+  return {
+    intent,
+    type: intent.verb,
+    targetId: intent.target,
+    topicId: intent.topic,
+    raw,
+  };
+}
+
+/** True if the parser is confident enough to act without clarification. */
+export function isConfident(action: GameAction): boolean {
+  if (["look", "inventory", "evidence", "help", "sleep", "wait"].includes(action.type)) {
+    return true;
+  }
+  if (action.type === "talk" || action.type === "ask") {
+    return !!action.targetId;
+  }
+  if (action.type === "move") return !!action.targetId;
+  if (action.type === "examine" || action.type === "search" || action.type === "use") {
+    return !!action.targetId;
+  }
+  if (action.type === "confront") return true;
+  if (action.type === "call") return !!action.targetId;
+  return false;
+}
