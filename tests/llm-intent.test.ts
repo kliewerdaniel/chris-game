@@ -127,15 +127,17 @@ describe("GameEngine — LLM parse opt-in (CHRIS_USE_LLM_PARSE)", () => {
     process.env.CHRIS_USE_LLM_PARSE = prev!;
   });
 
-  it("falls back to rules when the LLM returns an unhandleable verb", async () => {
+  it("falls back to rules when the LLM returns an unhandleable verb (no crash, world still answers)", async () => {
     const prev = process.env.CHRIS_USE_LLM_PARSE;
     process.env.CHRIS_USE_LLM_PARSE = "1";
     const eng = llmEngine({ verb: "fly", raw: "fly away" }); // null from resolver
     const s = eng.newGame();
-    // 'fly' is null -> resolver returns null -> rules parse 'fly' (unknown) ->
-    // not confident -> graceful clarification, never a crash.
-    const { result } = await eng.processTurn(s, "fly away");
-    expect(result.ok).toBe(false);
+    // 'fly' is unhandleable -> coerced to a feed/chat reply (ADR-006: never a
+    // dead wall). The engine does NOT crash and does NOT invent a fly action.
+    const { result, action } = await eng.processTurn(s, "fly away");
+    expect(result.ok).toBe(true);
+    expect(result.narration.length).toBeGreaterThan(0);
+    expect(action.type).toBe("chat");
     process.env.CHRIS_USE_LLM_PARSE = prev!;
   });
 });

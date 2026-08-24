@@ -28,21 +28,29 @@ describe("GameEngine — deterministic actions", () => {
     expect(s.quests["ep1.truth"].status).toBe("active");
   });
 
-  it("look around produces canonical narration", async () => {
+  it("look around produces canonical narration and a feed reaction", async () => {
     const eng = mockEngine();
     const s = eng.newGame();
     const { state, result } = await eng.processTurn(s, "look around");
     expect(result.ok).toBe(true);
     expect(result.narration[0].speaker).toBe("narrator");
-    expect(state).toEqual(s); // look does not mutate state
+    // look does not change world facts/location/evidence
+    expect(state.location).toBe(s.location);
+    expect(state.knownFacts).toEqual(s.knownFacts);
+    expect(state.evidenceIds).toEqual(s.evidenceIds);
+    // but the world talks back: a feed line was appended
+    expect(state.conversationLog.length).toBeGreaterThan(s.conversationLog.length);
   });
 
-  it("rejects unparseable input gracefully (no crash)", async () => {
+  it("always answers unparseable input as a chat reply (no dead wall)", async () => {
     const eng = mockEngine();
     const s = eng.newGame();
     const { result } = await eng.processTurn(s, "asdfqwerty nonsense word salad");
-    expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/try/i);
+    expect(result.ok).toBe(true);
+    expect(result.narration.length).toBeGreaterThan(0);
+    // some line came back from the feed/reconstruction, not a "didn't catch that"
+    const text = result.narration.map((l) => l.text).join(" ");
+    expect(text).not.toMatch(/didn't catch that/i);
   });
 
   it("discovers the post and establishes canonical facts", async () => {
@@ -87,12 +95,15 @@ describe("GameEngine — deterministic actions", () => {
     expect(state.endingId).toBe("ep1.left");
   });
 
-  it("phone must be unlocked before calling", async () => {
+  it("a locked-phone call still gets a feed reply (universal chat, no dead wall)", async () => {
     const eng = mockEngine();
     const s = eng.newGame();
+    // phone is locked at ep1 start: a call no longer hard-errors; it becomes a
+    // feed reply within the same world (ADR-006). The deterministic phone-gate
+    // still holds at the resolveCall UNIT level (see contacts tests).
     const { result } = await eng.processTurn(s, "call Mother");
-    expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/phone/i);
+    expect(result.ok).toBe(true);
+    expect(result.narration.length).toBeGreaterThan(0);
   });
 
   it("examining the phone unlocks it and discovers evidence", async () => {

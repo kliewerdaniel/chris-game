@@ -2,6 +2,7 @@ import { WorldState, GameAction, Exchange, DisclosureMode, ActionResult, Narrati
 import { characterEngine } from "../characters/engine";
 import { topicToLabel } from "./topic-label";
 import { resolveTargetTopicFromText } from "../inference/intent";
+import { selectSpeaker } from "./world-snapshot";
 
 /**
  * ADR-005 — shared conversational riff resolver.
@@ -53,7 +54,8 @@ export function isBoundaryMode(mode: DisclosureMode | undefined): boolean {
  */
 export function resolveChat(
   state: WorldState,
-  action: GameAction
+  action: GameAction,
+  speaker: string = CHAT_CHARACTER
 ): {
   state: WorldState;
   topicId: string;
@@ -68,7 +70,8 @@ export function resolveChat(
     action.targetId !== "chris" &&
     action.targetId !== "reconstruction" &&
     action.targetId !== "feed" &&
-    action.targetId !== "model"
+    action.targetId !== "model" &&
+    action.targetId !== speaker
   ) {
     return {
       state,
@@ -89,10 +92,10 @@ export function resolveChat(
   const topic = topicFromAction ?? topicFromText ?? "general";
   const topicLabel = topicToLabel(topic);
 
-  const decision = characterEngine.resolveDisclosure(state, CHAT_CHARACTER, topic, "talk");
+  const decision = characterEngine.resolveDisclosure(state, speaker, topic, "talk");
 
   // Record ask pressure + append the player's exchange line.
-  let next = characterEngine.recordAsk(state, CHAT_CHARACTER, topic);
+  let next = characterEngine.recordAsk(state, speaker, topic);
   next = appendExchange(next, {
     turn: next.conversationLog.length + 1,
     speaker: "player",
@@ -166,8 +169,10 @@ export function doChat(
   state: WorldState,
   action: GameAction
 ): { state: WorldState; result: ActionResult } {
-  const resolved = resolveChat(state, action);
-  const decision = characterEngine.resolveDisclosure(resolved.state, CHAT_CHARACTER, resolved.topicId, "talk");
+  // ADR-006: the speaker is decided deterministically (call→contact, else feed).
+  const speaker = selectSpeaker(state, action);
+  const resolved = resolveChat(state, action, speaker);
+  const decision = characterEngine.resolveDisclosure(resolved.state, speaker, resolved.topicId, "talk");
   const next = resolved.state;
   return {
     state: next,
@@ -181,7 +186,7 @@ export function doChat(
         lieAbout: decision.lieAboutFactId,
         seed: decision.seed,
         why: decision.why,
-        speaker: CHAT_CHARACTER,
+        speaker,
       },
     } as ActionResult,
   };

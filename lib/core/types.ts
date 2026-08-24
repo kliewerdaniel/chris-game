@@ -128,6 +128,33 @@ export interface Contact {
   note?: string;
 }
 
+// ---------------------------------------------------------------------------
+// World snapshot — ADR-006 read-only projection fed to the narrator so chat
+// replies are GROUNDED in the live state of the world (where you are, what
+// you've found, what's established). The model reads it; it never writes back.
+// ---------------------------------------------------------------------------
+export interface WorldSnapshotFact {
+  id: string;
+  statement: string;
+  status: FactStatus;
+}
+export interface WorldSnapshotEvidence {
+  id: string;
+  title: string;
+  content: string;
+  status: FactStatus;
+}
+export interface WorldSnapshot {
+  location: string;
+  time: string;
+  knownFacts: WorldSnapshotFact[];
+  evidence: WorldSnapshotEvidence[];
+  flags: Record<FlagId, boolean | number | string>;
+  present: CharacterId[];
+  phoneUnlocked: boolean;
+  episodeId: string;
+}
+
 export interface WorldState {
   version: number;
   player: {

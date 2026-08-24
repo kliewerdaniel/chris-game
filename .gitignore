@@ -6,3 +6,4 @@ out
 next-env.d.ts
 # compiled game data is regenerable from source artifacts
 data/compiled/_generated_*.json
+tsconfig.tsbuildinfo

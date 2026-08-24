@@ -10,7 +10,8 @@ import { CharacterEngine, characterEngine } from "../characters/engine";
 import { Retrieval, buildRetrievalFromMemories } from "../retrieval/retrieval";
 import { Narrator } from "../narrative/narrator";
 import { InferenceManager } from "../inference/provider";
-import { recordModelLine, recentExchangesFor, pushRecentlySaid, isBoundaryMode } from "./dialogue";
+import { recordModelLine, recentExchangesFor, pushRecentlySaid, isBoundaryMode, doChat } from "./dialogue";
+import { resolveSnapshot, selectSpeaker } from "./world-snapshot";
 import { parseAction, isConfident, RESOLVABLE_TARGET_IDS, RESOLVABLE_TOPIC_IDS } from "../inference/intent";
 import { resolveIntentWithLLM, AllowedActions, ALL_VERBS } from "../inference/llm-intent";
 import { Episode, EpisodeContext } from "../core/episode";
@@ -116,37 +117,38 @@ export class GameEngine {
       }
     }
 
+    // ADR-006: UNIVERSAL CHAT INTERFACE. There is no "didn't catch that" wall.
+    // If the parser isn't confident (free prose, typos, nonsense) the input is
+    // coerced to a `chat` turn with the reconstruction as speaker, so the
+    // player ALWAYS gets a reply — and it is part of the same world.
     if (!isConfident(action)) {
-      return {
-        state,
-        action,
-        result: {
-          ok: false,
-          reason: "I didn't catch that. Try 'look around', 'talk to the feed', or 'ask the feed if it's really Chris'.",
-          narration: [],
-          events: [],
-        },
-      };
+      action = { ...action, type: "chat", targetId: undefined, topicId: undefined };
     }
 
     const ctx: EpisodeContext = { engine: this.engineApi(), ce: this.ce };
     const handler = ep.dispatch(action, ctx);
 
+    // No episode handler for this verb (e.g. a "call" before the phone is
+    // unlocked, or a malformed world action) → it still becomes a chat turn so
+    // the feed responds within the world, never a dead wall.
     if (!handler) {
-      // No handler for this verb in the active episode.
-      return {
-        state,
-        action,
-        result: {
-          ok: false,
-          reason: "You can't do that here. Try 'look around' or 'help'.",
-          narration: [],
-          events: [],
-        },
-      };
+      if (action.type !== "chat") {
+        action = { ...action, type: "chat", targetId: undefined, topicId: undefined };
+      }
     }
 
-    let { state: next, result } = await handler(state, action, ctx);
+    const resolvedHandler = handler ?? ((s: WorldState, a: GameAction) => doChat(s, a));
+    let { state: next, result } = await resolvedHandler(state, action, ctx);
+
+    // ADR-006: even a failed action (phone locked, nothing to do) becomes a
+    // feed/chat reply so the player NEVER hits a dead wall — every input is
+    // answered within the same world.
+    if (!result.ok) {
+      const chatAction: GameAction = { ...action, type: "chat", targetId: undefined, topicId: undefined };
+      const chatResolved = doChat(next, chatAction);
+      next = chatResolved.state;
+      result = chatResolved.result;
+    }
 
     // Apply deterministic scheduled world events against the post-action state.
     // Fired ids are idempotent (recorded in next.firedEventIds). These carry
@@ -154,10 +156,14 @@ export class GameEngine {
     const worldStep = applyWorldEvents(next);
     next = worldStep.state;
 
-    // Voice character turns (talk/ask/confront) and safety-net empty narration.
+    // ADR-006: voice character turns, INCLUDING a world-aware feed reaction
+    // after every world action (look/examine/move/use/search). The world
+    // always talks back. Safety-net: voice empty narration too.
     if (result.ok) {
-      const needsVoice = ["talk", "ask", "confront", "chat"].includes(action.type);
-      if (needsVoice || result.narration.length === 0) {
+      const characterTurn = ["talk", "ask", "confront", "chat", "call"].includes(action.type);
+      const worldReaction = ["look", "examine", "move", "use", "search", "read"].includes(action.type);
+      const needsVoice = characterTurn || worldReaction || result.narration.length === 0;
+      if (needsVoice) {
         const { lines, state: voiced } = await this.generateNarration(next, action, result);
         next = voiced;
         result = { ...result, narration: lines };
@@ -189,15 +195,29 @@ export class GameEngine {
     const seed = (result.stateChanges as any)?.seed as string | undefined;
     const topicLabel = (result as any).topicLabel as string | undefined;
 
-    if (!["talk", "ask", "confront", "chat"].includes(action.type)) {
-      return { lines: result.narration, state };
-    }
+    // ADR-006: speaker is decided deterministically. An explicit `call` to a
+    // known contact routes to that person; everything else is the feed
+    // (the reconstruction). This is the "whether it be chris or the feed" rule.
+    const speakerId = selectSpeaker(state, action);
+
+    // Character turns (talk/ask/confront/chat/call) are voiced by the speaker.
+    // World actions (look/examine/move/use/search/sleep/...) ALSO get a feed
+    // reaction so the world always talks back (ADR-006). For those we ground a
+    // free-riff reply in the live WorldSnapshot as the reconstruction/feed.
+    const isCharacterTurn = ["talk", "ask", "confront", "chat", "call"].includes(action.type);
 
     // Determine which character voices this turn.
     let characterId: string | undefined;
-    if (action.targetId === "chris" || action.targetId === "reconstruction" || action.targetId === "model") {
-      characterId = "chris";
-    } else if (action.type === "confront") {
+    if (isCharacterTurn) {
+      if (speakerId === "chris" || action.targetId === "chris" || action.targetId === "reconstruction" || action.targetId === "model") {
+        characterId = "chris";
+      } else if (action.type === "confront") {
+        characterId = "chris";
+      } else {
+        characterId = speakerId;
+      }
+    } else {
+      // World action → the feed/reconstruction reacts to the world.
       characterId = "chris";
     }
 
@@ -207,7 +227,7 @@ export class GameEngine {
     }
 
     const ctx = this.deps.narrator.buildContext(state, action, {
-      handling: (handling ?? "truth") as any,
+      handling: (handling ?? "unknown") as any,
       lieText,
       seed,
       topicLabel,
@@ -215,20 +235,23 @@ export class GameEngine {
       discoveredEvidenceTitles: state.evidenceIds,
       // ADR-005: chat turns read the rolling exchange window + uniqueness ring.
       recentExchanges: action.type === "chat" ? recentExchangesFor(state) : undefined,
-      freeRiff: action.type === "chat" ? !isBoundaryMode(handling) : false,
-      recentlySaid: action.type === "chat" ? state.characterStates["chris"]?.recentlySaid ?? [] : undefined,
+      freeRiff: !isCharacterTurn ? true : !isBoundaryMode(handling),
+      recentlySaid: action.type === "chat" ? state.characterStates[speakerId]?.recentlySaid ?? [] : undefined,
+      // ADR-006: ground the reply in the live world so Chris/the feed can
+      // reference where you are and what you've found.
+      worldSnapshot: resolveSnapshot(state),
     });
     const outcome = await this.deps.narrator.narrate(ctx);
-    // ADR-005: persist the model's line into the rolling log + uniqueness ring
-    // so the next riff turn has continuity. State side-effect only (no facts).
+    // ADR-005/006: persist the model's line into the rolling log + uniqueness
+    // ring so the next riff turn has continuity. State side-effect only (no facts).
     const modelText = outcome.lines.map((l) => l.text).join(" ");
     let nextState = state;
-    if (action.type === "chat" && modelText) {
-      nextState = recordModelLine(nextState, { text: modelText, speaker: "chris", handling });
+    if (modelText) {
+      nextState = recordModelLine(nextState, { text: modelText, speaker: isCharacterTurn ? speakerId : "chris", handling });
       nextState = pushRecentlySaid(nextState, "chris", modelText);
     }
     // Tag reconstruction replies as testimony/rumor, never canonical Chris.
-    const speakerName = speaker === "reconstruction" ? "reconstruction" : characterId ?? "chris";
+    const speakerName = (isCharacterTurn ? speaker : "chris") === "reconstruction" ? "reconstruction" : characterId ?? "chris";
     return {
       lines: [...result.narration, ...outcome.lines.map((l) => ({ ...l, speaker: speakerName as any }))],
       state: nextState,

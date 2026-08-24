@@ -44,6 +44,9 @@ export interface NarrationContext {
   freeRiff?: boolean;
   /** ADR-005: last ≤4 model response texts, for the uniqueness guard. */
   recentlySaid?: string[];
+  /** ADR-006: read-only projection of the live world, so the reply is grounded
+   *  in what the player has actually found / established. Model reads only. */
+  worldSnapshot?: import("../core/types").WorldSnapshot;
   /** system instruction: voice + hard constraints. */
   systemInstruction: string;
 }
@@ -101,6 +104,8 @@ export class Narrator {
       recentExchanges?: NarrationContext["recentExchanges"];
       freeRiff?: boolean;
       recentlySaid?: string[];
+      /** ADR-006: read-only world projection to ground the reply. */
+      worldSnapshot?: import("../core/types").WorldSnapshot;
     } = {}
   ): NarrationContext {
     const def = opts.characterId ? CHARACTERS[opts.characterId] : undefined;
@@ -127,6 +132,7 @@ export class Narrator {
       recentExchanges: opts.recentExchanges,
       freeRiff: opts.freeRiff,
       recentlySaid: opts.recentlySaid,
+      worldSnapshot: opts.worldSnapshot,
       systemInstruction: buildSystemInstruction(def),
     };
   }
@@ -218,6 +224,26 @@ export class Narrator {
         ctx.character ? `${ctx.character.name} is present (mood: ${ctx.characterMood ?? "neutral"}).` : "No character is present."
       }`
     );
+    // ADR-006: ground the reply in the live world. The model may REFERENCE this
+    // state (where it is, what's been found, what's established) but must NOT
+    // contradict or invent beyond it — the epistemic boundary holds.
+    if (ctx.worldSnapshot) {
+      const snap = ctx.worldSnapshot;
+      const facts = snap.knownFacts.length
+        ? snap.knownFacts.map((f) => `- [${f.status}] ${f.statement}`).join("\n")
+        : "(none established)";
+      const evidence = snap.evidence.length
+        ? snap.evidence.map((e) => `- [${e.status}] ${e.title}: ${e.content}`).join("\n")
+        : "(none discovered)";
+      parts.push(
+        `WORLD STATE (you are IN this world — reference it, never contradict or invent beyond it):\n` +
+          `Location: ${snap.location}\n` +
+          `Time: ${snap.time}\n` +
+          `Phone unlocked: ${snap.phoneUnlocked ? "yes" : "no"}\n` +
+          `Established facts:\n${facts}\n` +
+          `Discovered evidence:\n${evidence}`
+      );
+    }
     // ADR-005: riff-loop exchange window. Lets the model reference prior lines
     // ("more like that") without mutating world state.
     if (ctx.recentExchanges && ctx.recentExchanges.length) {
