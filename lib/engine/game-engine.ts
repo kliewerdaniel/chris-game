@@ -155,7 +155,7 @@ export class GameEngine {
 
     // Voice character turns (talk/ask/confront) and safety-net empty narration.
     if (result.ok) {
-      const needsVoice = ["talk", "ask", "confront"].includes(action.type);
+      const needsVoice = ["talk", "ask", "confront", "chat"].includes(action.type);
       if (needsVoice || result.narration.length === 0) {
         const nar = await this.generateNarration(next, action, result);
         result = { ...result, narration: nar };
@@ -194,7 +194,7 @@ export class GameEngine {
     const seed = (result.stateChanges as any)?.seed as string | undefined;
     const topicLabel = (result as any).topicLabel as string | undefined;
 
-    if (!["talk", "ask", "confront"].includes(action.type)) return result.narration;
+    if (!["talk", "ask", "confront", "chat"].includes(action.type)) return result.narration;
 
     // Determine which character voices this turn.
     let characterId: string | undefined;

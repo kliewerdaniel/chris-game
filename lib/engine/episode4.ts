@@ -17,6 +17,7 @@ import { CHARACTERS } from "../characters/chris";
 import { characterEngine } from "../characters/engine";
 import { Episode, EpisodeContext, beat } from "../core/episode";
 import { resolveCall, contactsForEpisode } from "./contacts";
+import { doChat } from "./dialogue";
 
 /**
  * EPISODE 4 — THE ACT.
@@ -309,6 +310,8 @@ export const EPISODE4: Episode = {
         return (s, a) => doTalk(s, a);
       case "ask":
         return (s, a) => doAsk(s, a);
+      case "chat":
+        return (s, a) => doChat(s, a);
       case "tell":
         return (s, a) => doTell(s, a);
       case "examine":
