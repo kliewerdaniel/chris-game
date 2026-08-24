@@ -62,9 +62,10 @@ body::before {
   z-index: 1;
   display: grid;
   grid-template-columns: 240px 1fr 300px;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   grid-template-areas:
     "header header header"
+    "travel travel travel"
     "left   center right"
     "left   input  right";
   gap: 1px;
@@ -415,6 +416,67 @@ body::before {
   color: var(--ink-faint);
   font-family: var(--font-mono);
   margin-top: 2px;
+}
+.board-sub.dim {
+  color: var(--ink-faint);
+  opacity: 0.8;
+}
+.board-agg {
+  color: var(--accent);
+  font-weight: 400;
+}
+.board-timelines {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  margin-top: 3px;
+}
+
+/* Travel journal bar */
+.travel-bar {
+  grid-area: travel;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-soft);
+  border-top: 1px solid var(--border-soft);
+}
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--ink-dim);
+  background: var(--bg-soft);
+  user-select: none;
+}
+.chip:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+.chip-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chip-locked {
+  text-decoration: line-through;
+  opacity: 0.4;
+}
+.chip-return {
+  border-color: var(--chris);
+  color: var(--chris);
+}
+.chip-free {
+  border-color: var(--canon);
+  color: var(--canon);
+  margin-left: auto;
 }
 
 /* mobile */

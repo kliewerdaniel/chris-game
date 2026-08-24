@@ -343,3 +343,108 @@ export function buildInvestigationPayload(state: WorldState) {
     openLeads: pi.openLeads.map((l) => ({ factId: l.factId, label: l.label, degree: l.degree })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Cross-timeline aggregation (ADR-003) — union across visited episodes
+// ---------------------------------------------------------------------------
+
+/** The shared board-payload shape returned for a single timeline. */
+export interface InvestigationPayload {
+  episodeId: string;
+  established: string[];
+  discovered: string[];
+  corroboration: {
+    factId: string;
+    status?: FactStatus;
+    verdict: string;
+    supporters: number;
+    contradictors: number;
+    /** episodes (timeline ids) this fact appeared in — set by aggregateInvestigation. */
+    timelines?: string[];
+  }[];
+  visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
+  openLeads: { factId: string; label: string; degree: number }[];
+}
+
+/**
+ * Aggregate the board across MULTIPLE visited timelines. Called by the travel
+ * UI with the player's snapshot states (the TravelJournal). The result shows
+ * corroboration/divergence the player has observed *across* Chris's timeline —
+ * the epistemic killer feature: "N outlets across M timelines agree / diverge."
+ *
+ * Rules:
+ *  - established / discovered are unioned across timelines.
+ *  - A fact row is present if it appeared in ANY timeline's board. Its verdict
+ *    is "corroborated" if corroborated in any timeline; otherwise the strongest
+ *    remaining verdict. `timelines` lists which episode ids observed it.
+ *  - visibleContradictions are unioned, each tagged with its `timeline`.
+ *  - openLeads are unioned and their `degree` is SUMMED across timelines (a lead
+ *    open in multiple episodes is more central → ranked first).
+ *
+ * Epistemic boundary preserved: no world-truth is asserted; we report unioned
+ * corroboration/divergence over engine-owned state only, no model call.
+ */
+export function aggregateInvestigation(states: WorldState[]): InvestigationPayload & {
+  episodeId: "all";
+  timelines: string[];
+} {
+  const timelines = states.map((s) => s.episodeId).filter((id, i, a) => a.indexOf(id) === i);
+  const per = states.map((s) => buildInvestigationPayload(s));
+
+  const established = unique(per.flatMap((p) => p.established));
+  const discovered = unique(per.flatMap((p) => p.discovered));
+
+  // Corroboration union keyed by factId.
+  const corrMap = new Map<string, (typeof per)[number]["corroboration"][number] & { timelines: string[] }>();
+  for (let i = 0; i < per.length; i++) {
+    for (const row of per[i].corroboration) {
+      const existing = corrMap.get(row.factId);
+      if (!existing) {
+        corrMap.set(row.factId, { ...row, timelines: [timelines[i]] });
+      } else {
+        if (!existing.timelines.includes(timelines[i])) existing.timelines.push(timelines[i]);
+        existing.supporters = Math.max(existing.supporters, row.supporters);
+        existing.contradictors = Math.max(existing.contradictors, row.contradictors);
+        if (row.verdict === "corroborated") existing.verdict = "corroborated";
+      }
+    }
+  }
+  const corroboration = [...corrMap.values()];
+
+  // Contradictions union (keyed by factId + report), tagged by timeline.
+  const contraMap = new Map<string, { factId: string; report: string; claimLabels: string[]; timelines: string[] }>();
+  for (let i = 0; i < per.length; i++) {
+    for (const c of per[i].visibleContradictions) {
+      const key = `${c.factId}::${c.report}`;
+      const existing = contraMap.get(key);
+      if (!existing) contraMap.set(key, { ...c, timelines: [timelines[i]] });
+      else if (!existing.timelines.includes(timelines[i])) existing.timelines.push(timelines[i]);
+    }
+  }
+  const visibleContradictions = [...contraMap.values()];
+
+  // Leads union, degree summed across timelines.
+  const leadMap = new Map<string, { factId: string; label: string; degree: number }>();
+  for (const p of per) {
+    for (const l of p.openLeads) {
+      const existing = leadMap.get(l.factId);
+      if (!existing) leadMap.set(l.factId, { ...l });
+      else existing.degree += l.degree;
+    }
+  }
+  const openLeads = [...leadMap.values()].sort((a, b) => b.degree - a.degree);
+
+  return {
+    episodeId: "all",
+    timelines,
+    established,
+    discovered,
+    corroboration,
+    visibleContradictions,
+    openLeads,
+  };
+}
+
+function unique<T>(arr: T[]): T[] {
+  return [...new Set(arr)];
+}

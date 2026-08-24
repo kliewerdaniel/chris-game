@@ -7,6 +7,16 @@ import type {
   Evidence,
   FactStatus,
 } from "@/lib/core/types";
+import {
+  TravelJournal,
+  createJournal,
+  captureLive,
+  markComplete,
+  canTravelTo,
+  isFreeTravel,
+  restore,
+  allSnapshotStates,
+} from "@/lib/core/travel";
 
 interface EpisodeMeta {
   id: string;
@@ -32,14 +42,23 @@ interface TurnResponse {
 /** Shape returned by /api/investigation — the player's consistency board. */
 interface InvestigationPayload {
   episodeId: string;
+  timelines?: string[];
   established: string[];
   discovered: string[];
-  corroboration: { factId: string; status?: FactStatus; verdict: string; supporters: number; contradictors: number }[];
-  visibleContradictions: { factId: string; report: string; claimLabels: string[] }[];
+  corroboration: { factId: string; status?: FactStatus; verdict: string; supporters: number; contradictors: number; timelines?: string[] }[];
+  visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
   openLeads: { factId: string; label: string; degree: number }[];
 }
 
 const SAVE_KEY = "chris-game-save-v2";
+
+/** Stable episode ordering for the travel chips (id, index, title). */
+const EPISODE_ORDER: { id: string; index: number; title: string }[] = [
+  { id: "ep1", index: 1, title: "THE NIGHT BEFORE" },
+  { id: "ep2", index: 2, title: "THE PORCH" },
+  { id: "ep3", index: 3, title: "THE LAST CALL" },
+  { id: "ep4", index: 4, title: "THE REBUILD" },
+];
 
 const EPISODE_INTROS: Record<string, NarrationLine[]> = {
   ep1: [
@@ -98,8 +117,20 @@ export function GameClient() {
   const [epMeta, setEpMeta] = useState<EpisodeMeta | null>(null);
   const [board, setBoard] = useState<InvestigationPayload | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [journal, setJournal] = useState<TravelJournal>(createJournal());
+  const [viewingLive, setViewingLive] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep the command box focused so the player can keep typing after a turn
+  // resolves without re-clicking. (We deliberately do NOT disable the input on
+  // `busy` — disabling an input drops its focus, which is what forced the
+  // re-select. send() itself guards against double-sends while busy.)
+  const refocusInput = useCallback(() => {
+    const el = inputRef.current;
+    if (el) el.focus();
+  }, []);
 
   const isAtBottom = () => {
     const el = scrollRef.current;
@@ -131,12 +162,17 @@ export function GameClient() {
           evidence: Evidence[];
           established: string[];
           epMeta: EpisodeMeta | null;
+          journal?: TravelJournal;
         };
         setState(JSON.parse(parsed.state));
         setLog(parsed.log);
         setEvidence(parsed.evidence ?? []);
         setEstablished(parsed.established ?? []);
         setEpMeta(parsed.epMeta ?? null);
+        if (parsed.journal) {
+          setJournal(parsed.journal);
+          setViewingLive(true);
+        }
         setToast("Resumed saved game.");
         return;
       } catch {
@@ -156,7 +192,14 @@ export function GameClient() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [log, evidence, scrollToBottom]);
+    refocusInput();
+  }, [log, evidence, scrollToBottom, refocusInput]);
+
+  // On first mount, grab focus so the player starts typing immediately.
+  useEffect(() => {
+    refocusInput();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function startNew() {
     setBusy(true);
@@ -173,28 +216,39 @@ export function GameClient() {
     setEpMeta(data.episode ?? null);
     setEvidence([]);
     setEstablished([]);
+    // Reset travel journal for a fresh playthrough; capture the live frontier.
+    setViewingLive(true);
+    const freshJournal = captureLive(createJournal(), ws);
+    setJournal(freshJournal);
     setBusy(false);
-    save(ws, intro, [], [], data.episode ?? null);
+    save(ws, intro, [], [], data.episode ?? null, freshJournal);
     setBoard(null);
     stickRef.current = true;
     scrollToBottom(true);
+    refocusInput();
   }
 
-  function save(ws: WorldState, lg: NarrationLine[], ev: Evidence[], est: string[], meta: EpisodeMeta | null) {
+  function save(ws: WorldState, lg: NarrationLine[], ev: Evidence[], est: string[], meta: EpisodeMeta | null, jr: TravelJournal = journal) {
     if (typeof window === "undefined") return;
     localStorage.setItem(
       SAVE_KEY,
-      JSON.stringify({ state: JSON.stringify(ws), log: lg, evidence: ev, established: est, epMeta: meta })
+      JSON.stringify({ state: JSON.stringify(ws), log: lg, evidence: ev, established: est, epMeta: meta, journal: jr })
     );
   }
 
-  /** Pull the live consistency board from the read-only /api/investigation endpoint. */
+  /** Pull the consistency board. When the player has visited multiple
+   *  timelines, aggregate across them (cross-timeline corroboration/divergence);
+   *  otherwise render the single current timeline. Best-effort: never blocks play. */
   async function refreshBoard(ws: WorldState) {
     try {
+      const snapStates = allSnapshotStates(journal);
+      const body = snapStates.length > 1
+        ? { states: snapStates.map((s) => JSON.stringify(s)) }
+        : { state: JSON.stringify(ws) };
       const res = await fetch("/api/investigation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: JSON.stringify(ws) }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) return;
       const data = (await res.json()) as InvestigationPayload & { ok?: boolean };
@@ -222,13 +276,47 @@ export function GameClient() {
       setLog(newLog);
       setEpMeta(data.episode ?? null);
       setToast(`Now playing: ${data.episode?.title ?? ""}`);
-      save(ws, newLog, evidence, established, data.episode ?? null);
+      // The episode we advanced FROM is complete; record it, then capture the
+      // new live frontier.
+      let jr = journal;
+      if (state.episodeComplete) jr = markComplete(jr, state, state.endingId);
+      jr = captureLive(jr, ws);
+      setJournal(jr);
+      setViewingLive(true);
+      save(ws, newLog, evidence, established, data.episode ?? null, jr);
       setBoard(null);
       stickRef.current = true;
       scrollToBottom(true);
+      refocusInput();
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Travel to a completed episode (non-destructive replay of its snapshot). */
+  function travelTo(episodeId: string) {
+    const snap = restore(journal, episodeId);
+    if (!snap) return;
+    setState(snap);
+    setViewingLive(episodeId === journal.liveEpisodeId);
+    setBoard(null);
+    stickRef.current = true;
+    scrollToBottom(true);
+    refocusInput();
+  }
+
+  /** Return to the live frontier (abandon the replay view without losing progress). */
+  function returnToLive() {
+    const live = journal.liveEpisodeId;
+    if (!live) return;
+    const snap = restore(journal, live);
+    if (!snap) return;
+    setState(snap);
+    setViewingLive(true);
+    setBoard(null);
+    stickRef.current = true;
+    scrollToBottom(true);
+    refocusInput();
   }
 
   async function send() {
@@ -265,19 +353,21 @@ export function GameClient() {
       if (!data.ok && data.reason) {
         setToast(data.reason);
       }
-      save(
-        ws,
-        newLog,
-        data.discoveredEvidence?.length ? [...evidence, ...data.discoveredEvidence] : evidence,
-        established,
-        data.episode ?? epMeta
-      );
+      // Capture the live frontier after every turn; mark the episode complete
+      // if this turn closed it (unlocks free travel on ep4.closed).
+      const ev = data.discoveredEvidence?.length ? [...evidence, ...data.discoveredEvidence] : evidence;
+      let jr = journal;
+      if (ws.episodeComplete) jr = markComplete(jr, ws, ws.endingId);
+      jr = captureLive(jr, ws);
+      setJournal(jr);
+      save(ws, newLog, ev, established, data.episode ?? epMeta, jr);
       // Refresh the consistency board against the new state (best-effort).
       if (boardOpen) void refreshBoard(ws);
     } catch (e) {
       setToast("The connection faltered. Your progress is safe.");
     } finally {
       setBusy(false);
+      refocusInput();
     }
   }
 
@@ -308,6 +398,37 @@ export function GameClient() {
           </a>
         </div>
       </header>
+
+      {/* Travel journal: chips for every episode reached. Completed episodes
+          are always revisit-able; after ep4 the whole timeline is free travel.
+          While viewing a replay, a "return to live" chip appears. */}
+      {Object.keys(journal.snapshots).length > 0 && (
+        <nav className="travel-bar">
+          {Object.values(EPISODE_ORDER).map((ep) => {
+            const snap = journal.snapshots[ep.id];
+            if (!snap) return null;
+            const reachable = canTravelTo(journal, ep.id);
+            const active = ws?.episodeId === ep.id;
+            return (
+              <a
+                key={ep.id}
+                className={`chip ${active ? "chip-active" : ""} ${!reachable ? "chip-locked" : ""}`}
+                onClick={() => reachable && travelTo(ep.id)}
+                style={{ cursor: reachable ? "pointer" : "not-allowed", opacity: reachable ? 1 : 0.4 }}
+                title={reachable ? `Travel to ${ep.title}` : "Complete this episode first"}
+              >
+                {roman(ep.index)}·{ep.title}
+              </a>
+            );
+          })}
+          {!viewingLive && (
+            <a className="chip chip-return" onClick={returnToLive} style={{ cursor: "pointer" }}>
+              ↩ return to live
+            </a>
+          )}
+          {isFreeTravel(journal) && <span className="chip chip-free">FREE TRAVEL</span>}
+        </nav>
+      )}
 
       <aside className="panel-left">
         <div className="section-title">World</div>
@@ -393,6 +514,12 @@ export function GameClient() {
           <div className="board-wrap">
             <div className="section-title board-title">
               Consistency Board
+              {board?.timelines && board.timelines.length > 1 && (
+                <span className="board-agg"> · across {board.timelines.length} timelines</span>
+              )}
+              {board?.timelines && board.timelines.length > 1 && (
+                <div className="board-timelines">{board.timelines.map((t) => t.toUpperCase()).join("  ·  ")}</div>
+              )}
               <a onClick={() => setBoardOpen(false)} style={{ cursor: "pointer", float: "right", fontSize: 11 }}>[close]</a>
             </div>
             {!board ? (
@@ -414,10 +541,13 @@ export function GameClient() {
                   <div className="board-section">
                     <div className="board-label warn">CONTRADICTIONS ({board.visibleContradictions.length})</div>
                     {board.visibleContradictions.map((c) => (
-                      <div key={c.factId} className="board-row contra">
+                      <div key={c.factId + (c.report ?? "")} className="board-row contra">
                         <span className="board-text">{c.report}</span>
                         {c.claimLabels?.length > 0 && (
                           <div className="board-sub">{c.claimLabels.join("  ·  ")}</div>
+                        )}
+                        {c.timelines && c.timelines.length > 1 && (
+                          <div className="board-sub dim">seen in: {c.timelines.map((t) => t.toUpperCase()).join(" · ")}</div>
                         )}
                       </div>
                     ))}
@@ -472,11 +602,11 @@ export function GameClient() {
 
       <div className="inputbar">
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKey}
           placeholder={busy ? "…" : "What do you do?"}
-          disabled={busy}
           aria-label="command input"
         />
         <button onClick={send} disabled={busy || !input.trim()}>
