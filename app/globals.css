@@ -107,6 +107,9 @@ body::before {
   font-size: 11px;
   color: var(--ink-faint);
 }
+.header .save a.voice-on {
+  color: var(--chris);
+}
 
 .panel-left {
   grid-area: left;

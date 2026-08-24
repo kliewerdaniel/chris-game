@@ -119,9 +119,18 @@ export function GameClient() {
   const [boardOpen, setBoardOpen] = useState(false);
   const [journal, setJournal] = useState<TravelJournal>(createJournal());
   const [viewingLive, setViewingLive] = useState(true);
+  const [voiceOn, setVoiceOn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  // TTS queue: a single <audio> element + an index into pending lines. Only
+  // character voices are read aloud (chris/feed/reconstruction/mother/evidence);
+  // narrator/player/system stay silent.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const speakQueueRef = useRef<string[]>([]);
+  const speakIdxRef = useRef(0);
+  const voiceOnRef = useRef(false);
+  voiceOnRef.current = voiceOn;
 
   // Keep the command box focused so the player can keep typing after a turn
   // resolves without re-clicking. (We deliberately do NOT disable the input on
@@ -236,6 +245,70 @@ export function GameClient() {
     );
   }
 
+  // Voices whose lines are read aloud. The reconstruction (chris/feed) is the
+  // primary voice; named contacts (mother) and evidence readings also speak.
+  const SPOKEN_SPEAKERS = new Set(["chris", "feed", "reconstruction", "mother", "evidence"]);
+
+  /** Enqueue the spoken lines from a narration batch and start draining. */
+  function enqueueSpeech(lines: NarrationLine[]) {
+    if (!voiceOnRef.current) return;
+    const spoken = lines.filter((l) => SPOKEN_SPEAKERS.has(l.speaker)).map((l) => l.text);
+    if (spoken.length === 0) return;
+    speakQueueRef.current.push(...spoken);
+    if (speakIdxRef.current === 0) void drainSpeech();
+  }
+
+  async function drainSpeech() {
+    if (speakIdxRef.current >= speakQueueRef.current.length) {
+      speakQueueRef.current = [];
+      speakIdxRef.current = 0;
+      return;
+    }
+    const text = speakQueueRef.current[speakIdxRef.current];
+    if (!audioRef.current) audioRef.current = new Audio();
+    const audio = audioRef.current;
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice: "chris.wav", speed: 1.0 }),
+      });
+      if (!res.ok) {
+        // Fail-closed: skip this line, move on. Never block the game.
+        speakIdxRef.current += 1;
+        void drainSpeech();
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      audio.src = url;
+      await new Promise<void>((resolve) => {
+        const onEnd = () => {
+          audio.removeEventListener("ended", onEnd);
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        audio.addEventListener("ended", onEnd);
+        audio.play().catch(() => resolve());
+      });
+    } catch {
+      /* skip on any error */
+    }
+    speakIdxRef.current += 1;
+    void drainSpeech();
+  }
+
+  /** Toggle voice. Turning off stops the queue immediately. */
+  function toggleVoice() {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    if (!next) {
+      speakQueueRef.current = [];
+      speakIdxRef.current = 0;
+      if (audioRef.current) audioRef.current.pause();
+    }
+  }
+
   /** Pull the consistency board. When the player has visited multiple
    *  timelines, aggregate across them (cross-timeline corroboration/divergence);
    *  otherwise render the single current timeline. Best-effort: never blocks play. */
@@ -343,6 +416,9 @@ export function GameClient() {
       const newLog = [...currentLog, ...data.narration];
       setLog(newLog);
 
+      // ADR-TTS: read character replies aloud when voice is on.
+      enqueueSpeech(data.narration);
+
       if (data.discoveredEvidence?.length) {
         setEvidence((e) => [...e, ...data.discoveredEvidence]);
         setToast(`Evidence discovered: ${data.discoveredEvidence.map((d) => d.title).join(", ")}`);
@@ -389,6 +465,10 @@ export function GameClient() {
         <div className="save">
           {ws ? `Day ${ws.time.day} · ${fmtTime(ws.time)}` : ""}
           <br />
+          <a onClick={toggleVoice} style={{ cursor: "pointer" }} className={voiceOn ? "voice-on" : ""}>
+            [{voiceOn ? "🔊 voice on" : "🔈 voice off"}]
+          </a>
+          {" · "}
           <a onClick={startNew} style={{ cursor: "pointer" }}>
             [new game]
           </a>
