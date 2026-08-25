@@ -1,6 +1,6 @@
 # ADR-011: LLM Capabilities on the Public Build (free-chat + LLM commands)
 
-**Status:** PROPOSED (design checkpoint — await user review before code)
+**Status:** ACCEPTED (implemented + deployed; see verification below)
 **Date:** 2026-08-25
 **Supersedes:** — (extends ADR-002, ADR-005, ADR-009, ADR-010)
 **Carries:** untouched epistemic boundary — *the AI voices a world it does not
