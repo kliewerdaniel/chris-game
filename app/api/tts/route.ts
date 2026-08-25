@@ -15,11 +15,19 @@ export const dynamic = "force-dynamic";
  *
  * If vox is down or returns an error, we respond 503 and the client silently
  * skips the line — never crashes, never blocks play.
+ *
+ * DECISION #4: cloned-voice TTS is OFF for public. This route only functions
+ * when NEXT_PUBLIC_TTS_ENABLED=1 (local/dev builds). In a public deploy it
+ * returns 503 so no localhost clone-voice path is ever reachable.
  */
+const TTS_ENABLED = process.env.NEXT_PUBLIC_TTS_ENABLED === "1";
 const VOX_BASE = process.env.VOX_BASE_URL || "http://127.0.0.1:7860";
 const DEFAULT_VOICE = "chris.wav";
 
 export async function POST(req: NextRequest) {
+  if (!TTS_ENABLED) {
+    return NextResponse.json({ error: "tts disabled in this build" }, { status: 503 });
+  }
   let body: { text?: unknown; voice?: unknown; speed?: unknown };
   try {
     body = (await req.json()) as typeof body;

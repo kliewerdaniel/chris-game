@@ -171,6 +171,56 @@ export class LlamaCppProvider extends BaseHttpProvider {
   }
 }
 
+/**
+ * Hosted OpenAI-compatible provider (PUBLIC narration path).
+ *
+ * Used ONLY inside the serverless `/api/narrate` function so the API key never
+ * reaches the client. Selected when `CHRIS_HOSTED_URL` + `CHRIS_HOSTED_KEY` are
+ * set. Same fail-closed `InferenceManager` chain semantics: if it errors, the
+ * chain throws `NoLocalInferenceError` and the client falls back to a
+ * deterministic line.
+ */
+export class HostedProvider implements InferenceProvider {
+  readonly name = "hosted";
+  readonly local = false;
+  private baseUrl: string;
+  private defaultModel: string;
+  constructor(
+    baseUrl = process.env.CHRIS_HOSTED_URL ?? "",
+    model = process.env.CHRIS_HOSTED_MODEL ?? "gpt-4o-mini"
+  ) {
+    this.baseUrl = baseUrl;
+    this.defaultModel = model;
+  }
+  async chat(req: InferenceRequest): Promise<InferenceResult> {
+    const apiKey = process.env.CHRIS_HOSTED_KEY;
+    if (!this.baseUrl || !apiKey) {
+      throw new NoLocalInferenceError("Hosted provider not configured (missing CHRIS_HOSTED_URL/KEY).");
+    }
+    const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: req.model ?? this.defaultModel,
+        messages: req.messages,
+        temperature: req.temperature ?? 0.7,
+        max_tokens: req.maxTokens ?? 400,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`hosted chat failed: ${res.status} ${await res.text().catch(() => "")}`);
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const text = data.choices?.[0]?.message?.content?.trim() ?? "";
+    return { text, provider: this.name, simulated: false };
+  }
+}
+
 export class OllamaChatProvider extends BaseHttpProvider {
   readonly name = "ollama";
   constructor(baseUrl = "http://127.0.0.1:11434", model = "ornith.gguf") {
@@ -316,33 +366,42 @@ export class InferenceManager {
 }
 
 /**
- * Build the production provider chain from environment. Defaults to the two
- * LOCAL endpoints confirmed live on this machine. No cloud provider is ever
- * added. Set CHRIS_INFERENCE=mock to force the offline path.
+ * Build the production provider chain from environment.
+ *
+ * PUBLIC-PATH RULE: local providers are ONLY added when their URL is explicitly
+ * set. We no longer always probe `127.0.0.1:8080`/`:11434` — on a stranger's
+ * deploy those addresses are meaningless and the connection-refused is handled
+ * fast, but the engine must not *assume* a local model exists. The hosted
+ * provider is added when CHRIS_HOSTED_URL + CHRIS_HOSTED_KEY are set. If neither
+ * local nor hosted is configured, the chain throws NoLocalInferenceError and the
+ * caller falls back to a deterministic line. No cloud call is ever made silently.
  */
 export function buildInferenceManager(): InferenceManager {
   if (process.env.CHRIS_INFERENCE === "mock") {
     return new InferenceManager([new MockProvider()]);
   }
   const providers: InferenceProvider[] = [];
-  if (process.env.CHRIS_LLAMACPP_URL || true) {
+  if (process.env.CHRIS_LLAMACPP_URL) {
     providers.push(
       new LlamaCppProvider(
-        process.env.CHRIS_LLAMACPP_URL ?? "http://127.0.0.1:8080",
+        process.env.CHRIS_LLAMACPP_URL,
         process.env.CHRIS_LLAMACPP_MODEL ?? "ornith.gguf"
       )
     );
   }
-  if (process.env.CHRIS_OLLAMA_URL || true) {
+  if (process.env.CHRIS_OLLAMA_URL) {
     providers.push(
       new OllamaChatProvider(
-        process.env.CHRIS_OLLAMA_URL ?? "http://127.0.0.1:11434",
+        process.env.CHRIS_OLLAMA_URL,
         process.env.CHRIS_OLLAMA_MODEL ?? "ornith.gguf"
       )
     );
   }
-  // Mock is appended LAST so the engine still runs if both locals are down —
-  // BUT only if explicitly opted in via CHRIS_ALLOW_MOCK_FALLBACK, so we never
+  if (process.env.CHRIS_HOSTED_URL && process.env.CHRIS_HOSTED_KEY) {
+    providers.push(new HostedProvider(process.env.CHRIS_HOSTED_URL, process.env.CHRIS_HOSTED_MODEL));
+  }
+  // Mock is appended LAST so the engine still runs if both locals are down — BUT
+  // only if explicitly opted in via CHRIS_ALLOW_MOCK_FALLBACK, so we never
   // silently substitute a stub for real narration in production.
   if (process.env.CHRIS_ALLOW_MOCK_FALLBACK === "1") {
     providers.push(new MockProvider());

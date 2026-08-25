@@ -10,6 +10,7 @@ import { CharacterEngine, characterEngine } from "../characters/engine";
 import { Retrieval, buildRetrievalFromMemories } from "../retrieval/retrieval";
 import { Narrator } from "../narrative/narrator";
 import { InferenceManager } from "../inference/provider";
+import { LocalInferenceBackend, createClientBackend } from "../inference/narrate-backend";
 import { recordModelLine, recentExchangesFor, pushRecentlySaid, isBoundaryMode, doChat } from "./dialogue";
 import { resolveSnapshot, selectSpeaker } from "./world-snapshot";
 import { parseAction, isConfident, RESOLVABLE_TARGET_IDS, RESOLVABLE_TOPIC_IDS } from "../inference/intent";
@@ -31,7 +32,8 @@ export const EPISODES: Record<string, Episode> = {
 export interface EngineDeps {
   retrieval: Retrieval;
   narrator: Narrator;
-  inference: InferenceManager;
+  /** null on the public client path — narration is handled by a serverless fn. */
+  inference: InferenceManager | null;
   characterEngine?: CharacterEngine;
 }
 
@@ -283,8 +285,33 @@ export function createEngine(deps: EngineDeps): GameEngine {
 /** Convenience factory wiring the default providers + Chris artifacts. */
 export function createDefaultEngine(inference: InferenceManager): GameEngine {
   const retrieval = buildRetrievalFromMemories(CHRIS.memories);
-  const narrator = new Narrator(inference, retrieval);
+  const narrator = new Narrator(
+    new LocalInferenceBackend((req) =>
+      inference.chat({
+        messages: [
+          { role: "system", content: req.systemInstruction },
+          { role: "user", content: req.userPrompt },
+        ],
+        temperature: req.temperature,
+        maxTokens: req.maxTokens,
+      })
+    ),
+    retrieval
+  );
   return new GameEngine({ retrieval, narrator, inference });
+}
+
+/**
+ * Build an engine that runs entirely CLIENT-SIDE for public play. The narrator
+ * uses the browser's `HostedNarrateBackend` (POSTs to same-origin `/api/narrate`)
+ * or falls back to the deterministic backend when narration is disabled. No
+ * `InferenceManager` is constructed in the browser, so no model key or localhost
+ * probe ever ships to the client.
+ */
+export function createClientEngine(): GameEngine {
+  const retrieval = buildRetrievalFromMemories(CHRIS.memories);
+  const narrator = new Narrator(createClientBackend(), retrieval);
+  return new GameEngine({ retrieval, narrator, inference: null });
 }
 
 // silence unused import warnings for types used only structurally

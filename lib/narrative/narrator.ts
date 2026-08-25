@@ -1,6 +1,7 @@
 import { WorldState, NarrationLine, CharacterDef, Fact, Provenance } from "../core/types";
 import { CHARACTERS } from "../characters/chris";
 import { Retrieval } from "../retrieval/retrieval";
+import { NarrateBackend, DeterministicBackend, LocalInferenceBackend, createClientBackend } from "../inference/narrate-backend";
 import { InferenceManager, NoLocalInferenceError } from "../inference/provider";
 import { GameAction } from "../core/types";
 
@@ -85,7 +86,7 @@ function buildSystemInstruction(def?: CharacterDef): string {
 
 export class Narrator {
   constructor(
-    private inference: InferenceManager,
+    private backend: NarrateBackend,
     private retrieval: Retrieval
   ) {}
 
@@ -166,14 +167,13 @@ export class Narrator {
     const temperature = ctx.freeRiff ? 0.9 : 0.6;
     const userPrompt = this.renderPrompt(ctx);
     try {
-      const result = await this.inference.chat({
-        messages: [
-          { role: "system", content: ctx.systemInstruction },
-          { role: "user", content: userPrompt },
-        ],
+      const result = await this.backend.narrate({
+        systemInstruction: ctx.systemInstruction,
+        userPrompt,
         temperature,
         maxTokens: 400,
       });
+      if (!result) return this.fallback(ctx, "no narration backend available — fail closed");
       let text = this.validateOutput(result.text, ctx);
       // ADR-005 uniqueness guard: if the model echoed a recent line, ask once more
       // for a different angle before giving up.
@@ -181,21 +181,21 @@ export class Narrator {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
         const repeated = ctx.recentlySaid.some((p) => norm(p) === norm(text));
         if (repeated) {
-          const retry = await this.inference.chat({
-            messages: [
-              { role: "system", content: ctx.systemInstruction },
-              { role: "user", content: userPrompt + "\n\n(That was a repeat. Say something genuinely different this time.)" },
-            ],
+          const retry = await this.backend.narrate({
+            systemInstruction: ctx.systemInstruction,
+            userPrompt:
+              userPrompt +
+              "\n\n(That was a repeat. Say something genuinely different this time.)",
             temperature: 1.0,
             maxTokens: 400,
           });
-          text = this.validateOutput(retry.text, ctx);
+          if (retry) text = this.validateOutput(retry.text, ctx);
         }
       }
       return {
         lines: [{ speaker: ctx.character ? "chris" : "narrator", text, status: ctx.handling === "lie" ? "testimony" : "canonical" }],
         usedModel: !result.simulated,
-        provider: result.provider,
+        provider: result.simulated ? "deterministic" : "hosted",
         simulated: result.simulated,
       };
     } catch (e) {

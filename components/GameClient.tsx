@@ -13,6 +13,8 @@ import {
 import type { EpisodeMeta } from "./episode-meta";
 import type { InvestigationPayload } from "./investigation-payload";
 import type { TtsLine } from "./tts-types";
+import { createClientEngine, EPISODES } from "../lib/engine/game-engine";
+import { buildInvestigationPayload } from "../lib/core/investigation";
 import {
   GameHeader,
   TravelBar,
@@ -75,7 +77,12 @@ export function GameClient() {
   const [journal, setJournal] = useState<TravelJournal>(createJournal());
   const [viewingLive, setViewingLive] = useState(true);
   const [voiceOn, setVoiceOn] = useState(false);
+  // Cloned-voice TTS is OFF for public (decision #4) — local/dev only. The voice
+  // toggle and all /api/tts calls are suppressed unless explicitly enabled at
+  // build time. The game is fully playable text-only.
+  const ttsEnabled = process.env.NEXT_PUBLIC_TTS_ENABLED === "1";
   const [mobileTab, setMobileTab] = useState<"world" | "board" | null>(null);
+  const [confirmNew, setConfirmNew] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +97,12 @@ export function GameClient() {
   const logVersionRef = useRef(0);
   const voiceOnRef = useRef(false);
   voiceOnRef.current = voiceOn;
+
+  // The deterministic engine runs CLIENT-SIDE. It is built once (it holds a
+  // retrieval index + narrator) and reused for every turn. Narration is the only
+  // thing it delegates — to the HostedNarrateBackend (POST /api/narrate) when
+  // NEXT_PUBLIC_NARRATION is not "off", else to the deterministic fallback.
+  const engineRef = useRef(createClientEngine());
 
   // Keep the command box focused so the player can keep typing after a turn
   // resolves without re-clicking. (We deliberately do NOT disable the input on
@@ -171,29 +184,34 @@ export function GameClient() {
 
   async function startNew() {
     setBusy(true);
-    const res = await fetch("/api/turn", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state: "", input: "__new__" }),
-    });
-    const data = (await res.json()) as TurnResponse;
-    const ws: WorldState = JSON.parse(data.state);
-    setState(ws);
-    const intro = EPISODE_INTROS.ep1;
-    setLog(intro);
-    setEpMeta(data.episode ?? null);
-    setEvidence([]);
-    setEstablished([]);
-    // Reset travel journal for a fresh playthrough; capture the live frontier.
-    setViewingLive(true);
-    const freshJournal = captureLive(createJournal(), ws);
-    setJournal(freshJournal);
-    setBusy(false);
-    save(ws, intro, [], [], data.episode ?? null, freshJournal);
-    setBoard(null);
-    stickRef.current = true;
-    scrollToBottom(true);
-    refocusInput();
+    try {
+      const ws = engineRef.current.newGame();
+      setState(ws);
+      const intro = EPISODE_INTROS.ep1;
+      setLog(intro);
+      const meta: EpisodeMeta = {
+        id: EPISODES.ep1.id,
+        title: EPISODES.ep1.title,
+        subtitle: EPISODES.ep1.subtitle,
+        index: EPISODES.ep1.index,
+      };
+      setEpMeta(meta);
+      setEvidence([]);
+      setEstablished([]);
+      // Reset travel journal for a fresh playthrough; capture the live frontier.
+      setViewingLive(true);
+      const freshJournal = captureLive(createJournal(), ws);
+      setJournal(freshJournal);
+      setBusy(false);
+      save(ws, intro, [], [], meta, freshJournal);
+      setBoard(null);
+      stickRef.current = true;
+      scrollToBottom(true);
+      refocusInput();
+    } finally {
+      setBusy(false);
+      refocusInput();
+    }
   }
 
   function save(ws: WorldState, lg: NarrationLine[], ev: Evidence[], est: string[], meta: EpisodeMeta | null, jr: TravelJournal = journal) {
@@ -251,6 +269,7 @@ export function GameClient() {
    *  Lazily synthesizes on first click if the WAV isn't cached yet, so the
    *  play button works on-demand even when the global voice toggle is off. */
   async function playLine(idx: number) {
+    if (!ttsEnabled) return; // voice is a local/dev feature only
     let line = ttsRef.current[idx];
     if (!line?.url) {
       // Not synthesized yet — generate it now (spinner shows via state).
@@ -300,6 +319,7 @@ export function GameClient() {
   // auto-play the newest ones in order. Bumping logVersion invalidates earlier
   // in-flight fetches so a stale WAV can't attach to a recycled index.
   useEffect(() => {
+    if (!ttsEnabled) return; // public build: no /api/tts calls at all
     const spoken: { idx: number; text: string }[] = [];
     log.forEach((l, i) => {
       if (isSpokenSpeaker(l.speaker) && l.text.trim()) spoken.push({ idx: i, text: l.text });
@@ -371,18 +391,10 @@ export function GameClient() {
   async function refreshBoard(ws: WorldState) {
     try {
       const snapStates = allSnapshotStates(journal);
-      const body = snapStates.length > 1
-        ? { states: snapStates.map((s) => JSON.stringify(s)) }
-        : { state: JSON.stringify(ws) };
-      const res = await fetch("/api/investigation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as InvestigationPayload & { ok?: boolean };
-      if (data?.ok === false) return;
-      setBoard(data);
+      const payload = snapStates.length > 1
+        ? buildInvestigationPayload(snapStates[snapStates.length - 1])
+        : buildInvestigationPayload(ws);
+      setBoard(payload);
     } catch {
       /* board is best-effort; never block play on it */
     }
@@ -392,19 +404,21 @@ export function GameClient() {
     if (!state) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/turn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: JSON.stringify(state), input: "__advance__", advanceEpisode: true }),
-      });
-      const data = (await res.json()) as TurnResponse;
-      const ws: WorldState = JSON.parse(data.state);
+      const next = engineRef.current.nextEpisode(state);
+      if (!next) return;
+      const ws = next;
       setState(ws);
-      const intro = (EPISODE_INTROS[ws.episodeId] ?? []).map((l) => ({ ...l }));
-      const newLog = [...log, ...data.narration, ...intro];
+      const ep = EPISODES[ws.episodeId];
+      const meta: EpisodeMeta = { id: ep.id, title: ep.title, subtitle: ep.subtitle, index: ep.index };
+      const intro = (EPISODE_INTROS[ws.episodeId] ?? []).map((l) => ({ ...l })) as NarrationLine[];
+      const newLog: NarrationLine[] = [
+        ...log,
+        { speaker: "system", text: `— ${ep.title} —`, status: "canonical" },
+        ...intro,
+      ];
       setLog(newLog);
-      setEpMeta(data.episode ?? null);
-      setToast(`Now playing: ${data.episode?.title ?? ""}`);
+      setEpMeta(meta);
+      setToast(`Now playing: ${ep.title}`);
       // The episode we advanced FROM is complete; record it, then capture the
       // new live frontier.
       let jr = journal;
@@ -412,7 +426,7 @@ export function GameClient() {
       jr = captureLive(jr, ws);
       setJournal(jr);
       setViewingLive(true);
-      save(ws, newLog, evidence, established, data.episode ?? null, jr);
+      save(ws, newLog, evidence, established, meta, jr);
       setBoard(null);
       stickRef.current = true;
       scrollToBottom(true);
@@ -459,48 +473,31 @@ export function GameClient() {
     setLog(currentLog);
 
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 30_000);
-      let res: Response;
-      try {
-        res = await fetch("/api/turn", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ state: JSON.stringify(state), input: text }),
-          signal: ctrl.signal,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-      const data = (await res.json()) as TurnResponse;
-      const ws: WorldState = JSON.parse(data.state);
+      const { state: ws, result } = await engineRef.current.processTurn(state, text);
       setState(ws);
-      setEpMeta(data.episode ?? epMeta);
+      const ep = EPISODES[ws.episodeId];
+      const meta: EpisodeMeta = { id: ep.id, title: ep.title, subtitle: ep.subtitle, index: ep.index };
+      setEpMeta(meta);
 
-      const newLog = [...currentLog, ...data.narration];
+      const newLog = [...currentLog, ...result.narration];
       setLog(newLog);
 
-      // Spoken lines are synthesized + auto-played by the TTS effect (below)
-      // when voice is on; per-line play/stop is wired in the narration render.
+      if (result.discoveredEvidence?.length) {
+        setEvidence((e) => [...e, ...result.discoveredEvidence!]);
+        setToast(`Evidence discovered: ${result.discoveredEvidence.map((d) => d.title).join(", ")}`);
+      }
+      if (result.establishedFacts?.length) {
+        setEstablished((f) => [...f, ...result.establishedFacts!]);
+      }
 
-      if (data.discoveredEvidence?.length) {
-        setEvidence((e) => [...e, ...data.discoveredEvidence]);
-        setToast(`Evidence discovered: ${data.discoveredEvidence.map((d) => d.title).join(", ")}`);
-      }
-      if (data.establishedFacts?.length) {
-        setEstablished((f) => [...f, ...data.establishedFacts]);
-      }
-      if (!data.ok && data.reason) {
-        setToast(data.reason);
-      }
       // Capture the live frontier after every turn; mark the episode complete
       // if this turn closed it (unlocks free travel on ep4.closed).
-      const ev = data.discoveredEvidence?.length ? [...evidence, ...data.discoveredEvidence] : evidence;
+      const ev = result.discoveredEvidence?.length ? [...evidence, ...result.discoveredEvidence] : evidence;
       let jr = journal;
       if (ws.episodeComplete) jr = markComplete(jr, ws, ws.endingId);
       jr = captureLive(jr, ws);
       setJournal(jr);
-      save(ws, newLog, ev, established, data.episode ?? epMeta, jr);
+      save(ws, newLog, ev, established, meta, jr);
       // Refresh the consistency board against the new state (best-effort).
       if (boardOpen) void refreshBoard(ws);
     } catch (e) {
@@ -523,8 +520,9 @@ export function GameClient() {
         meta={meta}
         ws={ws}
         voiceOn={voiceOn}
+        ttsEnabled={ttsEnabled}
         onToggleVoice={toggleVoice}
-        onNewGame={startNew}
+        onNewGame={() => setConfirmNew(true)}
         onOpenBoard={() => {
           setBoardOpen(true);
           if (state) void refreshBoard(state);
@@ -573,10 +571,34 @@ export function GameClient() {
         onSend={send}
         onKey={onKey}
         inputRef={inputRef}
+        affordance="Type what you want Chris to do — then press Enter."
       />
 
       <Toast toast={toast} />
       <TabBar active={mobileTab} onTab={(t) => setMobileTab((cur) => (cur === t ? null : t))} />
+
+      {confirmNew && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true">
+          <div className="confirm-box">
+            <p>Start a new game? Your current progress will be erased.</p>
+            <div className="confirm-actions">
+              <button type="button" className="asbtn" onClick={() => setConfirmNew(false)}>
+                [cancel]
+              </button>
+              <button
+                type="button"
+                className="asbtn confirm-danger"
+                onClick={() => {
+                  setConfirmNew(false);
+                  void startNew();
+                }}
+              >
+                [new game]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -77,11 +77,12 @@ export function GameHeader(props: {
   meta: EpisodeMeta | null;
   ws: WorldState | null;
   voiceOn: boolean;
+  ttsEnabled: boolean;
   onToggleVoice: () => void;
   onNewGame: () => void;
   onOpenBoard: () => void;
 }) {
-  const { meta, ws, voiceOn, onToggleVoice, onNewGame, onOpenBoard } = props;
+  const { meta, ws, voiceOn, ttsEnabled, onToggleVoice, onNewGame, onOpenBoard } = props;
   return (
     <header className="header">
       <div>
@@ -93,10 +94,14 @@ export function GameHeader(props: {
       <div className="save">
         {ws ? `Day ${ws.time.day} · ${fmtTime(ws.time)}` : ""}
         <br />
-        <button type="button" onClick={onToggleVoice} className={`asbtn ${voiceOn ? "voice-on" : ""}`}>
-          [{voiceOn ? "🔊 voice on" : "🔈 voice off"}]
-        </button>
-        {" · "}
+        {ttsEnabled && (
+          <>
+            <button type="button" onClick={onToggleVoice} className={`asbtn ${voiceOn ? "voice-on" : ""}`}>
+              [{voiceOn ? "🔊 voice on" : "🔈 voice off"}]
+            </button>
+            {" · "}
+          </>
+        )}
         <button type="button" onClick={onNewGame} className="asbtn">
           [new game]
         </button>
@@ -414,8 +419,9 @@ export function CommandInput(props: {
   onSend: () => void;
   onKey: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   inputRef: React.RefObject<HTMLInputElement>;
+  affordance?: string;
 }) {
-  const { input, busy, onChange, onSend, onKey, inputRef } = props;
+  const { input, busy, onChange, onSend, onKey, inputRef, affordance } = props;
   return (
     <div className="inputbar">
       <input
@@ -429,6 +435,7 @@ export function CommandInput(props: {
       <button type="button" onClick={onSend} disabled={busy || !input.trim()}>
         {busy ? "…" : "SAY"}
       </button>
+      {affordance && !input && <div className="input-hint">{affordance}</div>}
     </div>
   );
 }
