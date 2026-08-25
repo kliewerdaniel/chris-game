@@ -220,9 +220,10 @@ export class HostedProvider implements InferenceProvider {
       max_tokens: req.maxTokens ?? 400,
       stream: false,
       // Reasoning models (qwen3.6, gpt-oss) emit their output inside
-      // <think>...</think> and leave the visible reply empty unless thinking is
+      // <think>…</think> and leave the visible reply empty unless thinking is
       // minimized. Keep thinking short so the post-<think> reply is non-empty.
-      reasoning_effort: "minimal",
+      // Groq/OpenAI allow: none/default/low/medium/high.
+      reasoning_effort: "low",
     };
     // ADR-011: forward tools for structured (intent) output. The OpenAI-compatible
     // shape is identical to our ChatTool type, so pass them through verbatim.
