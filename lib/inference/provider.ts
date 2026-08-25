@@ -49,6 +49,22 @@ export type ToolChoice =
   | { type: "function"; function: { name: string } };
 
 /**
+ * Strip a model's internal <think>…</think> reasoning trace. Reasoning models
+ * (qwen3.6, gpt-oss, ornith) wrap their deliberation in <think> tags and emit
+ * the actual reply AFTER the closing tag. We display only the reply. If there is
+ * no reply after the trace, fall back to the raw text so the line is never blank.
+ */
+export function stripThink(text: string): string {
+  if (!text.includes("<think")) return text;
+  const re = /<think\s*>[\s\S]*?<\/think\s*>/gi;
+  const stripped = text.replace(re, "").trim();
+  // No visible reply after the trace → keep the trace's inner text (tags only
+  // removed) so the displayed line is never blank.
+  if (stripped.length > 0) return stripped;
+  return text.replace(/<\/?think\s*>/gi, "").trim();
+}
+
+/**
  * Hard ceiling on any single local-inference call. Without this, a stalled or
  * overloaded local model (single-worker llama.cpp / ollama) leaves `await
  * fetch` pending forever, which hangs the whole /api/turn and the client
@@ -149,7 +165,7 @@ abstract class BaseHttpProvider implements InferenceProvider {
     // Some local models (gemma4, reasoning models) emit the visible reply in
     // `reasoning_content` while leaving `content` empty. Fall back so Chris is
     // never silently blank.
-    const text = msg?.content?.trim() || msg?.reasoning_content?.trim() || "";
+    const text = stripThink(msg?.content ?? msg?.reasoning_content ?? "").trim();
     const tcs = msg?.tool_calls;
     const toolCalls = Array.isArray(tcs)
       ? tcs.map((t: any) => ({
@@ -203,6 +219,10 @@ export class HostedProvider implements InferenceProvider {
       temperature: req.temperature ?? 0.7,
       max_tokens: req.maxTokens ?? 400,
       stream: false,
+      // Reasoning models (qwen3.6, gpt-oss) emit their output inside
+      // <think>...</think> and leave the visible reply empty unless thinking is
+      // minimized. Keep thinking short so the post-<think> reply is non-empty.
+      reasoning_effort: "minimal",
     };
     // ADR-011: forward tools for structured (intent) output. The OpenAI-compatible
     // shape is identical to our ChatTool type, so pass them through verbatim.
@@ -221,10 +241,13 @@ export class HostedProvider implements InferenceProvider {
     });
     if (!res.ok) throw new Error(`hosted chat failed: ${res.status} ${await res.text().catch(() => "")}`);
     const data = (await res.json()) as {
-      choices?: { message?: { content?: string; tool_calls?: any[] } }[];
+      choices?: { message?: { content?: string; reasoning_content?: string; tool_calls?: any[] } }[];
     };
     const msg = data.choices?.[0]?.message;
-    const text = msg?.content?.trim() ?? "";
+    // Strip <think>…</think> blocks (reasoning-model thinking traces) so the
+    // displayed narration is never the model's internal monologue.
+    const raw = msg?.content ?? msg?.reasoning_content ?? "";
+    const text = stripThink(raw).trim();
     const tcs = msg?.tool_calls;
     const toolCalls = Array.isArray(tcs)
       ? tcs.map((t: any) => ({
@@ -275,7 +298,7 @@ export class OllamaChatProvider extends BaseHttpProvider {
               : JSON.stringify(t?.function?.arguments ?? {}),
         }))
       : undefined;
-    return { text: data.message?.content ?? "", provider: this.name, simulated: false, toolCalls };
+    return { text: stripThink(data.message?.content ?? ""), provider: this.name, simulated: false, toolCalls };
   }
   async embed(req: EmbeddingRequest): Promise<number[]> {
     const res = await fetch(`${this.baseUrl}/api/embeddings`, {
