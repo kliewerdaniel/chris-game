@@ -48,6 +48,16 @@ export type ToolChoice =
   | "none"
   | { type: "function"; function: { name: string } };
 
+/**
+ * Hard ceiling on any single local-inference call. Without this, a stalled or
+ * overloaded local model (single-worker llama.cpp / ollama) leaves `await
+ * fetch` pending forever, which hangs the whole /api/turn and the client
+ * spinner. On timeout the call throws, which surfaces as a fail-closed
+ * deterministic fallback line rather than an infinite hang. Override with
+ * CHRIS_LLM_TIMEOUT_MS (ms).
+ */
+const LLM_TIMEOUT_MS = Number(process.env.CHRIS_LLM_TIMEOUT_MS ?? 20_000);
+
 export interface InferenceRequest {
   model?: string;
   messages: ChatMessage[];
@@ -127,6 +137,7 @@ abstract class BaseHttpProvider implements InferenceProvider {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
     if (!res.ok) {
       throw new Error(`${this.name} chat failed: ${res.status} ${await res.text().catch(() => "")}`);
@@ -180,6 +191,7 @@ export class OllamaChatProvider extends BaseHttpProvider {
           ? { tools: req.tools, tool_choice: req.toolChoice ?? "auto" }
           : {}),
       }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`ollama chat failed: ${res.status}`);
     const data = (await res.json()) as {
@@ -202,6 +214,7 @@ export class OllamaChatProvider extends BaseHttpProvider {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: req.model, prompt: req.text }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`ollama embed failed: ${res.status}`);
     const data = (await res.json()) as { embedding?: number[] };
@@ -238,35 +251,49 @@ export class MockProvider implements InferenceProvider {
  */
 export class InferenceManager {
   private providers: InferenceProvider[] = [];
+  /**
+   * Single-flight chain for model calls. The local inference server is a
+   * single-worker: concurrent /v1/chat/completions requests queue and each
+   * balloons to 12–16s (measured). Serializing here keeps per-turn latency
+   * predictable and prevents a pile-up from wedging the whole server. The
+   * in-provider AbortSignal.timeout still guarantees no call can hang forever.
+   */
+  private chain: Promise<unknown> = Promise.resolve();
   constructor(providers: InferenceProvider[]) {
     this.providers = providers;
   }
 
   async chat(req: InferenceRequest): Promise<InferenceResult> {
-    let lastErr: unknown;
-    for (const p of this.providers) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const r = await p.chat(req);
-          // A tool/function call is a valid completion even when `text` is
-          // empty (the model returns tool_calls with no content, which is the
-          // normal shape for structured/intent output).
-          if ((r.text && r.text.trim().length > 0) || (r.toolCalls && r.toolCalls.length > 0)) {
-            return r;
+    const run = async () => {
+      let lastErr: unknown;
+      for (const p of this.providers) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const r = await p.chat(req);
+            // A tool/function call is a valid completion even when `text` is
+            // empty (the model returns tool_calls with no content, which is the
+            // normal shape for structured/intent output).
+            if ((r.text && r.text.trim().length > 0) || (r.toolCalls && r.toolCalls.length > 0)) {
+              return r;
+            }
+            // Reasoning models can occasionally emit only thinking tokens; retry
+            // once with a larger budget before giving up on this provider.
+          } catch (e) {
+            lastErr = e;
           }
-          // Reasoning models can occasionally emit only thinking tokens; retry
-          // once with a larger budget before giving up on this provider.
-        } catch (e) {
-          lastErr = e;
         }
       }
-    }
-    // No local provider produced text. Fail closed.
-    throw new NoLocalInferenceError(
-      `No local inference available${
-        lastErr ? ` (last error: ${(lastErr as Error).message})` : ""
-      }. The game will not send private source material to a cloud provider.`
-    );
+      // No local provider produced text. Fail closed.
+      throw new NoLocalInferenceError(
+        `No local inference available${
+          lastErr ? ` (last error: ${(lastErr as Error).message})` : ""
+        }. The game will not send private source material to a cloud provider.`
+      );
+    };
+    const p = this.chain.then(run, run);
+    // Keep the chain alive even if one call rejects.
+    this.chain = p.then(() => undefined, () => undefined);
+    return p as Promise<InferenceResult>;
   }
 
   /** Best available embedding provider, else null (retrieval falls back to keyword). */

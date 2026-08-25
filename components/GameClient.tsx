@@ -441,11 +441,19 @@ export function GameClient() {
     setLog(currentLog);
 
     try {
-      const res = await fetch("/api/turn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: JSON.stringify(state), input: text }),
-      });
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30_000);
+      let res: Response;
+      try {
+        res = await fetch("/api/turn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state: JSON.stringify(state), input: text }),
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
       const data = (await res.json()) as TurnResponse;
       const ws: WorldState = JSON.parse(data.state);
       setState(ws);
