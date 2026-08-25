@@ -239,6 +239,52 @@ body::before {
   border: 1px solid var(--ink-faint);
 }
 
+/* Per-line spoken-audio controls: spinner while generating, play/stop button. */
+.tts-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tts-spin {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--ink-faint);
+  border-top-color: var(--chris);
+  border-radius: 50%;
+  display: inline-block;
+  animation: tts-spin 0.8s linear infinite;
+}
+@keyframes tts-spin {
+  to { transform: rotate(360deg); }
+}
+.tts-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--chris);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+.tts-btn:hover {
+  border-color: var(--chris);
+  color: var(--chris);
+}
+.tts-err {
+  color: var(--testimony);
+  font-size: 12px;
+  cursor: default;
+}
+
 /* input */
 .inputbar input {
   flex: 1;

@@ -39,6 +39,12 @@ interface TurnResponse {
   character?: { chrisTrust?: number };
 }
 
+/** Per-line spoken-audio state, keyed by the line's index in `log`. */
+interface TtsLine {
+  status: "loading" | "ready" | "playing" | "error";
+  url?: string;
+}
+
 /** Shape returned by /api/investigation — the player's consistency board. */
 interface InvestigationPayload {
   episodeId: string;
@@ -123,12 +129,15 @@ export function GameClient() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
-  // TTS queue: a single <audio> element + an index into pending lines. Only
-  // character voices are read aloud (chris/feed/reconstruction/mother/evidence);
-  // narrator/player/system stay silent.
+  // Per-line spoken-audio state. Only character voices (chris/feed/
+  // reconstruction/mother/evidence) get an entry; narrator/player/system stay
+  // silent. Keyed by the line's index in `log` so the spinner tracks the exact
+  // line. `logVersion` invalidates stale in-flight fetches after a new game/turn.
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const speakQueueRef = useRef<string[]>([]);
-  const speakIdxRef = useRef(0);
+  const [tts, setTts] = useState<Record<number, TtsLine>>({});
+  const ttsRef = useRef<Record<number, TtsLine>>({});
+  const [logVersion, setLogVersion] = useState(0);
+  const logVersionRef = useRef(0);
   const voiceOnRef = useRef(false);
   voiceOnRef.current = voiceOn;
 
@@ -248,64 +257,126 @@ export function GameClient() {
   // Voices whose lines are read aloud. The reconstruction (chris/feed) is the
   // primary voice; named contacts (mother) and evidence readings also speak.
   const SPOKEN_SPEAKERS = new Set(["chris", "feed", "reconstruction", "mother", "evidence"]);
+  const isSpokenSpeaker = (s: string) => SPOKEN_SPEAKERS.has(s);
 
-  /** Enqueue the spoken lines from a narration batch and start draining. */
-  function enqueueSpeech(lines: NarrationLine[]) {
-    if (!voiceOnRef.current) return;
-    const spoken = lines.filter((l) => SPOKEN_SPEAKERS.has(l.speaker)).map((l) => l.text);
-    if (spoken.length === 0) return;
-    speakQueueRef.current.push(...spoken);
-    if (speakIdxRef.current === 0) void drainSpeech();
-  }
-
-  async function drainSpeech() {
-    if (speakIdxRef.current >= speakQueueRef.current.length) {
-      speakQueueRef.current = [];
-      speakIdxRef.current = 0;
-      return;
-    }
-    const text = speakQueueRef.current[speakIdxRef.current];
-    if (!audioRef.current) audioRef.current = new Audio();
-    const audio = audioRef.current;
-    try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice: "chris.wav", speed: 1.0 }),
-      });
-      if (!res.ok) {
-        // Fail-closed: skip this line, move on. Never block the game.
-        speakIdxRef.current += 1;
-        void drainSpeech();
+  /** Play a single line's audio, with play/stop control wired to the UI.
+   *  Lazily synthesizes on first click if the WAV isn't cached yet, so the
+   *  play button works on-demand even when the global voice toggle is off. */
+  async function playLine(idx: number) {
+    let line = ttsRef.current[idx];
+    if (!line?.url) {
+      // Not synthesized yet — generate it now (spinner shows via state).
+      const text = log[idx]?.text?.trim();
+      if (!text) return;
+      setTts((prev) => ({ ...prev, [idx]: { status: "loading" } }));
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice: "chris.wav", speed: 1.0 }),
+        });
+        if (!res.ok) {
+          setTts((prev) => ({ ...prev, [idx]: { status: "error" } }));
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        ttsRef.current[idx] = { status: "ready", url };
+        setTts((prev) => ({ ...prev, [idx]: { status: "ready", url } }));
+        line = { status: "ready", url };
+      } catch {
+        setTts((prev) => ({ ...prev, [idx]: { status: "error" } }));
         return;
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      audio.src = url;
-      await new Promise<void>((resolve) => {
-        const onEnd = () => {
-          audio.removeEventListener("ended", onEnd);
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        audio.addEventListener("ended", onEnd);
-        audio.play().catch(() => resolve());
-      });
-    } catch {
-      /* skip on any error */
     }
-    speakIdxRef.current += 1;
-    void drainSpeech();
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+    audio.src = line.url!;
+    const onEnd = () => {
+      audio.removeEventListener("ended", onEnd);
+      setTts((prev) => ({ ...prev, [idx]: { ...prev[idx], status: "ready" } }));
+    };
+    audio.addEventListener("ended", onEnd);
+    void audio.play();
+    setTts((prev) => ({ ...prev, [idx]: { ...prev[idx], status: "playing" } }));
   }
 
-  /** Toggle voice. Turning off stops the queue immediately. */
+  /** Stop the currently playing line (and clear it back to ready). */
+  function stopLine(idx: number) {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    setTts((prev) => ({ ...prev, [idx]: { ...prev[idx], status: "ready" } }));
+  }
+
+  // Whenever the log changes, synthesize every spoken line and (if voice is on)
+  // auto-play the newest ones in order. Bumping logVersion invalidates earlier
+  // in-flight fetches so a stale WAV can't attach to a recycled index.
+  useEffect(() => {
+    const spoken: { idx: number; text: string }[] = [];
+    log.forEach((l, i) => {
+      if (isSpokenSpeaker(l.speaker) && l.text.trim()) spoken.push({ idx: i, text: l.text });
+    });
+    const version = logVersionRef.current + 1;
+    logVersionRef.current = version;
+    setLogVersion(version);
+
+    let cancelled = false;
+    (async () => {
+      for (const s of spoken) {
+        if (ttsRef.current[s.idx]?.url) continue; // already synthesized
+        if (!voiceOnRef.current) continue; // generate on demand only when voice on
+        const myVersion = version;
+        setTts((prev) => ({ ...prev, [s.idx]: { status: "loading" } }));
+        try {
+          const res = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: s.text, voice: "chris.wav", speed: 1.0 }),
+          });
+          if (cancelled || myVersion !== logVersionRef.current) return;
+          if (!res.ok) {
+            setTts((prev) => ({ ...prev, [s.idx]: { status: "error" } }));
+            continue;
+          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          ttsRef.current[s.idx] = { status: "ready", url };
+          setTts((prev) => ({ ...prev, [s.idx]: { status: "ready", url } }));
+          // Auto-play newest: stop whatever is currently playing.
+          if (audioRef.current) audioRef.current.pause();
+          playLine(s.idx);
+        } catch {
+          if (!cancelled && myVersion === logVersionRef.current)
+            setTts((prev) => ({ ...prev, [s.idx]: { status: "error" } }));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log]);
+
+  /** Toggle voice. Turning off stops playback and resets loading state. */
   function toggleVoice() {
     const next = !voiceOn;
     setVoiceOn(next);
     if (!next) {
-      speakQueueRef.current = [];
-      speakIdxRef.current = 0;
       if (audioRef.current) audioRef.current.pause();
+      setLogVersion((v) => {
+        logVersionRef.current = v + 1;
+        return v + 1;
+      });
+      setTts((prev) => {
+        const out: Record<number, TtsLine> = {};
+        for (const [k, v] of Object.entries(prev)) {
+          out[Number(k)] = v.url ? { status: "ready", url: v.url } : { status: "ready" };
+        }
+        return out;
+      });
     }
   }
 
@@ -416,8 +487,8 @@ export function GameClient() {
       const newLog = [...currentLog, ...data.narration];
       setLog(newLog);
 
-      // ADR-TTS: read character replies aloud when voice is on.
-      enqueueSpeech(data.narration);
+      // Spoken lines are synthesized + auto-played by the TTS effect (below)
+      // when voice is on; per-line play/stop is wired in the narration render.
 
       if (data.discoveredEvidence?.length) {
         setEvidence((e) => [...e, ...data.discoveredEvidence]);
@@ -564,6 +635,19 @@ export function GameClient() {
               )}
               {l.speaker === "system" && <span className="who system">»</span>}
               <div className="body">{l.text}</div>
+              {isSpokenSpeaker(l.speaker) && l.text.trim() && (
+                <span className="tts-row">
+                  {tts[i]?.status === "loading" && <span className="tts-spin" title="Generating speech…" aria-label="generating" />}
+                  {tts[i]?.status === "error" && <span className="tts-err" title="Speech unavailable">⚠</span>}
+                  {(tts[i]?.url || !tts[i] || tts[i]?.status === "error") && tts[i]?.status !== "loading" && (
+                    tts[i]?.status === "playing" ? (
+                      <button className="tts-btn" onClick={() => stopLine(i)} title="Stop">⏸</button>
+                    ) : (
+                      <button className="tts-btn" onClick={() => playLine(i)} title="Play">▶</button>
+                    )
+                  )}
+                </span>
+              )}
             </div>
           ))}
           {ws?.episodeComplete && (
