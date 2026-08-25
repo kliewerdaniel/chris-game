@@ -259,6 +259,25 @@ export function GameClient() {
   const SPOKEN_SPEAKERS = new Set(["chris", "feed", "reconstruction", "mother", "evidence"]);
   const isSpokenSpeaker = (s: string) => SPOKEN_SPEAKERS.has(s);
 
+  // Single-flight lock so the local vox TTS server never receives two
+  // concurrent /api/tts calls (it's a single worker; a burst was crashing it).
+  const ttsLock: { chain: Promise<unknown> } = { chain: Promise.resolve() };
+  function ttsRequest(text: string): Promise<{ ok: boolean; blob?: Blob }> {
+    const run = async () => {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice: "chris.wav", speed: 1.0 }),
+      });
+      if (!res.ok) return { ok: false as const };
+      return { ok: true as const, blob: await res.blob() };
+    };
+    const p = ttsLock.chain.then(run, run);
+    // Keep the chain alive even if one request rejects.
+    ttsLock.chain = p.then(() => undefined, () => undefined);
+    return p;
+  }
+
   /** Play a single line's audio, with play/stop control wired to the UI.
    *  Lazily synthesizes on first click if the WAV isn't cached yet, so the
    *  play button works on-demand even when the global voice toggle is off. */
@@ -270,16 +289,12 @@ export function GameClient() {
       if (!text) return;
       setTts((prev) => ({ ...prev, [idx]: { status: "loading" } }));
       try {
-        const res = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, voice: "chris.wav", speed: 1.0 }),
-        });
-        if (!res.ok) {
+        const r = await ttsRequest(text);
+        if (!r.ok) {
           setTts((prev) => ({ ...prev, [idx]: { status: "error" } }));
           return;
         }
-        const blob = await res.blob();
+        const blob = r.blob!;
         const url = URL.createObjectURL(blob);
         ttsRef.current[idx] = { status: "ready", url };
         setTts((prev) => ({ ...prev, [idx]: { status: "ready", url } }));
@@ -331,17 +346,13 @@ export function GameClient() {
         const myVersion = version;
         setTts((prev) => ({ ...prev, [s.idx]: { status: "loading" } }));
         try {
-          const res = await fetch("/api/tts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: s.text, voice: "chris.wav", speed: 1.0 }),
-          });
+          const r = await ttsRequest(s.text);
           if (cancelled || myVersion !== logVersionRef.current) return;
-          if (!res.ok) {
+          if (!r.ok) {
             setTts((prev) => ({ ...prev, [s.idx]: { status: "error" } }));
             continue;
           }
-          const blob = await res.blob();
+          const blob = r.blob!;
           const url = URL.createObjectURL(blob);
           ttsRef.current[s.idx] = { status: "ready", url };
           setTts((prev) => ({ ...prev, [s.idx]: { status: "ready", url } }));
