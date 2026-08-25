@@ -437,6 +437,11 @@ button:disabled {
   font-size: 12px;
   cursor: default;
 }
+.tts-muted {
+  color: var(--ink-faint);
+  font-size: 13px;
+  cursor: default;
+}
 
 /* ================================ INPUT ==================================== */
 .inputbar {

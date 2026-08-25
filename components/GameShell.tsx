@@ -235,7 +235,8 @@ export function NarrationLineView(props: {
         <span className="tts-row">
           {tts[index]?.status === "loading" && <span className="tts-spin" title="Generating speech…" aria-label="generating" />}
           {tts[index]?.status === "error" && <span className="tts-err" title="Speech unavailable">⚠</span>}
-          {(tts[index]?.url || !tts[index] || tts[index]?.status === "error") && tts[index]?.status !== "loading" && (
+          {tts[index]?.status === "muted" && <span className="tts-muted" title="Line too long to narrate — read it instead">🔇</span>}
+          {(tts[index]?.url || !tts[index] || tts[index]?.status === "error") && tts[index]?.status !== "loading" && tts[index]?.status !== "muted" && (
             tts[index]?.status === "playing" ? (
               <button type="button" className="tts-btn" onClick={() => onStop(index)} title="Stop">
                 ⏸

@@ -207,7 +207,20 @@ export function GameClient() {
   // Single-flight lock so the local vox TTS server never receives two
   // concurrent /api/tts calls (it's a single worker; a burst was crashing it).
   const ttsLock: { chain: Promise<unknown> } = { chain: Promise.resolve() };
+
+  // Length guard: vox synthesizes ~20s per ~50-word chunk, serially. A line
+  // longer than MAX_TTS_CHARS (≈ ~80 words) would take far longer than the
+  // proxy's 45s generate timeout and return a bad/empty WAV — the exact
+  // "examine the post takes forever then fails, next also fails" cascade.
+  // Over-long lines are skipped (text only, marked muted) instead of sent.
+  const MAX_TTS_CHARS = 480;
   function ttsRequest(text: string): Promise<{ ok: boolean; blob?: Blob }> {
+    // Fast-preempt: never hand a too-long line to vox (and never let the
+    // single-flight chain wait on it). Resolves as "ok: false" so callers
+    // mark the line muted rather than erroring.
+    if (text.length > MAX_TTS_CHARS) {
+      return Promise.resolve({ ok: false as const });
+    }
     const run = async () => {
       // Fail fast: if vox is down or wedged (single-worker waitress + global
       // infer lock), we must not let the <audio> spinner hang for the proxy's
@@ -247,7 +260,8 @@ export function GameClient() {
       try {
         const r = await ttsRequest(text);
         if (!r.ok) {
-          setTts((prev) => ({ ...prev, [idx]: { status: "error" } }));
+          const muted = text.length > MAX_TTS_CHARS;
+          setTts((prev) => ({ ...prev, [idx]: { status: muted ? "muted" : "error" } }));
           return;
         }
         const blob = r.blob!;
@@ -305,7 +319,11 @@ export function GameClient() {
           const r = await ttsRequest(s.text);
           if (cancelled || myVersion !== logVersionRef.current) return;
           if (!r.ok) {
-            setTts((prev) => ({ ...prev, [s.idx]: { status: "error" } }));
+            // Either vox is down OR the line is too long for speech (length
+            // guard). Distinguish so a long line reads as "muted" (text only),
+            // not a hard error.
+            const muted = s.text.length > MAX_TTS_CHARS;
+            setTts((prev) => ({ ...prev, [s.idx]: { status: muted ? "muted" : "error" } }));
             continue;
           }
           const blob = r.blob!;
