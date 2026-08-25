@@ -1,163 +1,47 @@
 /* ==========================================================================
-   CHRIS — design system (Iteration 2)
-   A literary reconstruction instrument under lamplight.
-   No glassmorphism, no AI gradients, no neon. Manuscript-first.
-   Epistemic states communicate WHY something is known, not how confident.
+   CHRIS — global styles (literary manuscript surface)
+   Tokens live in tokens.css. This file is structural + component styling only.
    ========================================================================== */
 
-:root {
-  /* --- surfaces: warm, dim, paper-like --- */
-  --bg: #0e0d0b; /* near-black, faint warm */
-  --bg-soft: #161310; /* raised panel */
-  --bg-panel: #131110; /* side rails */
-  --bg-sunken: #0a0908; /* inset wells (insets, board) */
+* { box-sizing: border-box; }
 
-  /* --- ink (text) --- */
-  --ink: #e9e2d4; /* primary manuscript ink */
-  --ink-dim: #a59c8b; /* secondary */
-  --ink-faint: #6f675a; /* tertiary / labels */
-  --ink-faintest: #4a4438;
-
-  /* --- lamplight accent --- */
-  --accent: #c69a4c; /* muted gold — the lamp */
-  --accent-soft: #8a6f3c;
-  --accent-bright: #e3b863;
-
-  /* --- epistemic palette (semantic, distinct hues + distinct textures) --- */
-  --canonical: #c8a24a; /* established / gold / anchored */
-  --testimony: #c2845a; /* remembers / clay / attributed */
-  --belief: #7f8c93; /* believes / slate / provisional */
-  --hypothesis: #8f93c4; /* suspects / periwinkle / speculative */
-  --rumor: #9a8f7a; /* heard / low-fidelity / muted */
-  --contradiction: #b05c44; /* tension / iron-rust */
-  --unknown: #3b3833; /* intentional negative space */
-  --observation: #9fb29a; /* seen / quiet green */
-  --chris: #b7c4c7; /* the reconstruction's voice — cool steel */
-
-  /* --- lines --- */
-  --border: #2a2620;
-  --border-soft: #1d1a16;
-  --border-strong: #3a352c;
-
-  /* --- type --- */
-  --font-serif: var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-display: var(--font-fraunces), "Iowan Old Style", Palatino, Georgia, serif;
-  --font-mono: var(--font-plex), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-
-  --fs-base: 17px;
-  --lh-base: 1.62;
-  --maxw: 1180px;
-
-  /* motion: only to communicate a state change */
-  --motion: 160ms;
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
+html, body {
   margin: 0;
   padding: 0;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-serif);
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
+a { color: var(--accent); text-decoration: none; }
 
-::selection {
-  background: var(--accent);
-  color: #0a0805;
-}
+::selection { background: var(--accent); color: #0a0805; }
 
-/* faint paper grain + a single pool of lamplight, top-right. No gradients-as-decoration. */
+/* single pool of lamplight, top-right. No gradient-as-decoration. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(1100px 620px at 78% -12%, rgba(198, 154, 76, 0.06), transparent 62%),
-    radial-gradient(700px 480px at 12% 112%, rgba(183, 196, 199, 0.035), transparent 60%);
+    radial-gradient(1100px 620px at 80% -12%, rgba(198, 154, 76, 0.07), transparent 62%),
+    radial-gradient(700px 480px at 10% 112%, rgba(183, 196, 199, 0.035), transparent 60%);
   z-index: 0;
 }
 
-/* --------------------------------------------------------------------------
-   App shell — story as the primary column, rails recede.
-   -------------------------------------------------------------------------- */
-.app {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 232px minmax(0, 1fr) 320px;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "header header header"
-    "travel travel travel"
-    "left   center right"
-    "left   input  right";
-  gap: 1px;
-  max-width: var(--maxw);
-  margin: 0 auto;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-  background: var(--border-soft);
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+/* ---- keyboard focus visibility (does not affect mouse) ---- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
+button:disabled { cursor: not-allowed; }
 
-/* ---------------------------------- header --------------------------------- */
-.header {
-  grid-area: header;
-  padding: 20px 26px 16px;
-  background: var(--bg-soft);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
-.header h1 {
-  font-family: var(--font-display);
-  font-size: 24px;
-  letter-spacing: 0.34em;
-  font-weight: 400;
-  margin: 0;
-  color: var(--ink);
-  text-transform: uppercase;
-}
-.header .sub {
-  color: var(--ink-faint);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  font-family: var(--font-mono);
-  margin-top: 4px;
-  text-transform: lowercase;
-}
-.header .save {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ink-faint);
-  text-align: right;
-  line-height: 1.7;
-}
-.header .save a.voice-on,
-.header .save .asbtn.voice-on {
-  color: var(--chris);
-}
-
-/* Inline-action reset: <button> that reads like the old inline link. */
+/* inline-action reset: button that reads like the old inline link */
 .asbtn {
   background: none;
   border: none;
@@ -170,134 +54,135 @@ body::before {
   cursor: pointer;
   letter-spacing: inherit;
 }
-.asbtn:hover {
+.asbtn:hover { color: var(--ink); }
+
+/* ==========================================================================
+   App shell — a book, not a dashboard.
+   Story column is primary; a slim case-file bookmarks the marginalia.
+   ========================================================================== */
+.app {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "header header"
+    "travel travel"
+    "center file"
+    "input  file";
+  gap: 1px;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--border-soft);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+/* ---- header / wordmark ---- */
+.header {
+  grid-area: header;
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.header h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: var(--fs-wordmark);
+  letter-spacing: 0.36em;
+  margin: 0;
   color: var(--ink);
+  text-transform: uppercase;
 }
-
-/* Honest disabled state. */
-button:disabled {
-  cursor: not-allowed;
+.header .sub {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-eyebrow);
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  margin-top: var(--sp-1);
 }
-
-/* Keyboard focus visibility — does not affect mouse users. */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 2px;
+.header .meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-eyebrow);
+  color: var(--ink-faint);
+  text-align: right;
+  line-height: 1.8;
 }
+.header .meta .clock { color: var(--ink-dim); }
+.header .tools {
+  display: inline-flex;
+  gap: var(--sp-3);
+  align-items: center;
+  margin-top: var(--sp-1);
+}
+.header .asbtn.voice-on { color: var(--chris); }
 
-/* ---------------------------------- travel --------------------------------- */
+/* ---- travel / episode rail ---- */
 .travel-bar {
   grid-area: travel;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
-  padding: 10px 26px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-6);
   background: var(--bg-soft);
   border-bottom: 1px solid var(--border);
 }
 
-/* ---------------------------------- rails ---------------------------------- */
-.panel-left {
-  grid-area: left;
-  background: var(--bg-panel);
-  padding: 20px 18px;
-  border-right: 1px solid var(--border);
-  font-size: 14px;
-  overflow-y: auto;
-}
-.panel-right {
-  grid-area: right;
-  background: var(--bg-panel);
-  padding: 20px 18px;
-  border-left: 1px solid var(--border);
-  font-size: 14px;
-  overflow-y: auto;
-}
+/* ==========================================================================
+   Story column (center)
+   ========================================================================== */
 .center {
   grid-area: center;
   background: var(--bg);
-  padding: 34px 56px 38px;
+  padding: var(--sp-7) var(--sp-6) var(--sp-6);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-
-/* ------------------------------- section title ----------------------------- */
-.section-title {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  margin: 0 0 12px;
-  border-bottom: 1px solid var(--border-soft);
-  padding-bottom: 7px;
-}
-.section-title:not(:first-child) {
-  margin-top: 26px;
-}
-
-/* ---------------------------------- world ---------------------------------- */
-.world-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 5px 0;
-  color: var(--ink-dim);
-  border-bottom: 1px dotted var(--border-soft);
-}
-.world-line:last-child {
-  border-bottom: none;
-}
-.world-line .k {
-  color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-}
-.world-line .v {
-  color: var(--ink);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* ============================== NARRATIVE ================================== */
 .narrative {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: var(--sp-5);
   overflow-y: auto;
-  padding-right: 10px;
+  padding-right: var(--sp-3);
   scrollbar-gutter: stable;
-  max-width: 70ch;
-  margin: 0 auto;
   width: 100%;
+  max-width: var(--maxw-prose);
+  margin: 0 auto;
 }
-.line {
-  max-width: 68ch;
-}
+.line { max-width: var(--maxw-prose); }
 .line .who {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
+  font-size: var(--fs-label);
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-faint);
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: var(--sp-2);
 }
 .line .body {
   font-family: var(--font-serif);
-  font-size: 18px;
-  line-height: 1.66;
+  font-size: var(--fs-prose);
+  line-height: var(--lh-prose);
   color: var(--ink);
 }
-.line.narrator .body {
-  color: var(--ink);
-}
+.line.narrator .body { color: var(--ink); }
 .line.chris .body {
+  color: var(--chris);
+  font-style: italic;
+}
+.line.reconstruction .body {
   color: var(--chris);
   font-style: italic;
 }
@@ -309,18 +194,15 @@ button:disabled {
 .line.evidence .body {
   color: var(--observation);
   border-left: 2px solid var(--accent-soft);
-  padding-left: 14px;
+  padding-left: var(--sp-3);
   font-style: italic;
 }
 .line.player .body {
   color: var(--ink-dim);
   font-style: italic;
 }
-.line.player .body::before {
-  content: "";
-}
 
-/* status tag — a label + a color. Never color alone. */
+/* epistemic status tag — label + color, never color alone */
 .line .status-tag {
   font-family: var(--font-mono);
   font-size: 9px;
@@ -333,231 +215,172 @@ button:disabled {
   border: 1px solid currentColor;
 }
 
-/* ====================== EPISTEMIC VISUAL LANGUAGE ==========================
-   Each status: a hue, plus a texture cue (border-style / fill) so the
-   distinction survives without color. Canonical is anchored (solid, gold).
-   Testimony attributed (clay). Belief provisional (slate, dashed). Hypothesis
-   speculative (periwinkle, dotted). Rumor low-fidelity (muted, faint). Unknown
-   is intentional negative space (no fill, insetting). Contradiction is tension
-   (iron-rust, double rule). Observation is quiet green (seen).
-   ========================================================================== */
-.status-canonical {
-  color: var(--canonical);
-  border: 1px solid var(--canonical);
-  background: rgba(200, 162, 74, 0.1);
-}
-.status-testimony {
-  color: var(--testimony);
-  border: 1px solid var(--testimony);
-  background: rgba(194, 132, 90, 0.1);
-}
-.status-belief {
-  color: var(--belief);
-  border: 1px dashed var(--belief);
-  background: rgba(127, 140, 147, 0.08);
-}
-.status-hypothesis {
-  color: var(--hypothesis);
-  border: 1px dotted var(--hypothesis);
-  background: rgba(143, 147, 196, 0.08);
-}
-.status-rumor {
-  color: var(--rumor);
-  border: 1px solid var(--rumor);
-  background: transparent;
-  opacity: 0.82;
-}
-.status-observation {
-  color: var(--observation);
-  border: 1px solid var(--observation);
-  background: rgba(159, 178, 154, 0.1);
-}
-.status-unknown {
+/* SUBTLE in-fiction disclosure cue. Not a meta-tag — a diegetic whisper
+   rendered only when the engine decided lie / withhold / deflect / threaten. */
+.line .cue {
+  display: block;
+  margin-top: var(--sp-2);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--fs-cue);
   color: var(--ink-faint);
-  border: 1px solid var(--ink-faintest);
-  background: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 4px,
-    rgba(111, 103, 90, 0.12) 4px,
-    rgba(111, 103, 90, 0.12) 8px
-  );
-}
-/* contradictory relationship — drawn as tension, not a neutral chip */
-.status-contradiction {
-  color: var(--contradiction);
-  border: 1px double var(--contradiction);
-  background: rgba(176, 92, 68, 0.1);
+  letter-spacing: 0.01em;
 }
 
-/* --------------------------- spoken-audio controls ------------------------- */
+/* ---- spoken-audio controls ---- */
 .tts-row {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-top: 6px;
+  margin-top: var(--sp-2);
 }
 .tts-spin {
-  width: 11px;
-  height: 11px;
+  width: 11px; height: 11px;
   border: 2px solid var(--ink-faint);
   border-top-color: var(--chris);
   border-radius: 50%;
   display: inline-block;
   animation: tts-spin 0.8s linear infinite;
 }
-@keyframes tts-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+@keyframes tts-spin { to { transform: rotate(360deg); } }
 .tts-btn {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--chris);
   font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1;
-  width: 22px;
-  height: 22px;
+  font-size: 11px; line-height: 1;
+  width: 22px; height: 22px;
   border-radius: 3px;
-  cursor: pointer;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  cursor: pointer; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
   transition: border-color var(--motion) var(--ease), color var(--motion) var(--ease);
 }
-.tts-btn:hover {
-  border-color: var(--chris);
-  color: var(--chris);
-}
-.tts-err {
-  color: var(--contradiction);
-  font-size: 12px;
-  cursor: default;
-}
-.tts-muted {
-  color: var(--ink-faint);
-  font-size: 13px;
-  cursor: default;
-}
+.tts-btn:hover { border-color: var(--chris); }
+.tts-err { color: var(--contradiction); font-size: 12px; }
+.tts-muted { color: var(--ink-faint); font-size: 13px; }
 
-/* ================================ INPUT ==================================== */
-.inputbar {
-  grid-area: input;
-  background: var(--bg-soft);
-  border-top: 1px solid var(--border);
-  padding: 16px 24px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
+/* ==========================================================================
+   Case file (right rail) — the marginalia. A detective's board, not a JSON dump.
+   ========================================================================== */
+.file {
+  grid-area: file;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-4);
+  font-size: var(--fs-body);
 }
-.inputbar input {
-  flex: 1;
-  background: var(--bg-sunken);
-  border: 1px solid var(--border-strong);
-  color: var(--ink);
-  font-family: var(--font-serif);
-  font-size: 17px;
-  padding: 12px 16px;
-  border-radius: 3px;
-  outline: none;
-}
-.inputbar input::placeholder {
-  color: var(--ink-faint);
-  font-style: italic;
-}
-.inputbar input:focus {
-  border-color: var(--accent-soft);
-}
-.inputbar button {
-  background: var(--accent-soft);
-  color: #1a1409;
-  border: none;
+.section-title {
   font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
+  font-size: var(--fs-label);
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  padding: 0 22px;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background var(--motion) var(--ease);
+  color: var(--ink-faint);
+  margin: 0 0 var(--sp-3);
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 7px;
 }
-.inputbar button:hover {
-  background: var(--accent);
-}
-.inputbar button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
+.section-title:not(:first-child) { margin-top: var(--sp-6); }
 
-/* ============================ RIGHT-RAIL LISTS ============================= */
-.ev-item,
-.fact-item,
-.hyp-item {
+/* ---- world / marginalia facts ---- */
+.fact-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 5px 0;
+  color: var(--ink-dim);
+  border-bottom: 1px dotted var(--border-soft);
+}
+.fact-line:last-child { border-bottom: none; }
+.fact-line .k {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+.fact-line .v {
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.file .quest {
+  font-size: var(--fs-body);
+  color: var(--ink-dim);
+  padding: 3px 0;
+}
+.file .quest .done { color: var(--canonical); }
+.file .quest .blocked { color: var(--contradiction); }
+
+/* ---- evidence ---- */
+.ev-item {
   border: 1px solid var(--border-soft);
   border-left: 2px solid var(--ink-faintest);
   border-radius: 3px;
-  padding: 10px 12px;
-  margin-bottom: 9px;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
   background: var(--bg-soft);
 }
+.ev-item.is-canonical { border-left-color: var(--canonical); }
+.ev-item.is-observation { border-left-color: var(--observation); }
+.ev-item.is-testimony { border-left-color: var(--testimony); }
 .ev-item .t {
-  color: var(--observation);
-  font-size: 13px;
   font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--observation);
   letter-spacing: 0.02em;
 }
 .ev-item .c {
+  font-family: var(--font-serif);
+  font-size: var(--fs-body);
   color: var(--ink-dim);
-  font-size: 13px;
-  margin-top: 6px;
+  margin-top: var(--sp-2);
   line-height: 1.55;
   word-break: break-word;
 }
+
+/* ---- established facts (resolved statements, not IDs) ---- */
 .fact-item {
-  border-left-color: var(--canonical);
-}
-.fact-item .t {
-  font-size: 13px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-body);
   color: var(--ink);
-  font-family: var(--font-mono);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px dotted var(--border-soft);
 }
-.hyp-item .t {
-  font-size: 13px;
-  color: var(--ink-dim);
-}
-.tag {
+.fact-item:last-child { border-bottom: none; }
+.fact-item .src {
+  display: block;
   font-family: var(--font-mono);
   font-size: 9px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 2px;
-  border: 1px solid var(--ink-faint);
   color: var(--ink-faint);
-  margin-left: 7px;
-  white-space: nowrap;
+  margin-top: 3px;
 }
-.tag.canon {
-  color: var(--canonical);
-  border-color: var(--canonical);
-}
-.tag.test {
-  color: var(--testimony);
-  border-color: var(--testimony);
-}
-.tag.unk {
-  color: var(--ink-faint);
-  border-color: var(--ink-faintest);
-}
+
 .empty {
   color: var(--ink-faint);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--fs-body);
 }
 
+/* ---- contextual command affordance (collapsed, in-fiction) ---- */
+.help-toggle {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: var(--sp-2);
+  cursor: pointer;
+  transition: color var(--motion) var(--ease), border-color var(--motion) var(--ease);
+}
+.help-toggle:hover { color: var(--accent); border-color: var(--accent-soft); }
+.help-toggle .chev { float: right; }
+.help-list { margin-top: var(--sp-3); }
 .help-row {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -566,171 +389,127 @@ button:disabled {
   cursor: pointer;
   transition: color var(--motion) var(--ease);
 }
-.help-row:hover {
-  color: var(--accent);
-}
+.help-row:hover { color: var(--accent); }
 
-/* =========================== CONSISTENCY BOARD ============================= */
+/* ---- consistency board ---- */
 .board-wrap {
   border: 1px solid var(--border-strong);
   border-radius: 3px;
-  padding: 10px 12px 12px;
-  margin-bottom: 22px;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-5);
   background: var(--bg-sunken);
 }
-.board-title {
-  color: var(--accent);
-  border-bottom: 1px solid var(--border-strong);
-}
-.board-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 10px;
-}
-.board-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.board-title { color: var(--accent); border-bottom: 1px solid var(--border-strong); }
+.board-section { display: flex; flex-direction: column; gap: 6px; margin-top: var(--sp-3); }
 .board-label {
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--ink-faint);
 }
-.board-label.warn {
-  color: var(--contradiction);
-}
+.board-label.warn { color: var(--contradiction); }
 .board-row {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--ink-dim);
-  display: flex;
-  gap: 9px;
-  align-items: baseline;
+  font-size: 12px; line-height: 1.45; color: var(--ink-dim);
+  display: flex; gap: 9px; align-items: baseline;
 }
-.board-row .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex: 0 0 auto;
-  align-self: center;
-}
-.board-row.lead {
-  color: var(--ink);
-}
+.board-row .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; align-self: center; }
+.board-row.lead { color: var(--ink); }
 .board-row.contra {
   color: var(--contradiction);
   border-left: 2px double var(--contradiction);
   padding-left: 8px;
 }
 .board-row.mixed .board-fact,
-.board-row.mixed .board-text {
-  color: var(--testimony);
-}
+.board-row.mixed .board-text { color: var(--testimony); }
 .board-row.ok .board-fact,
-.board-row.ok .board-text {
-  color: var(--canonical);
-}
+.board-row.ok .board-text { color: var(--canonical); }
 .board-row.thin .board-fact,
-.board-row.thin .board-text {
-  color: var(--ink-dim);
-}
-.board-fact {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--ink-faint);
-  flex: 0 0 auto;
-}
-.board-counts {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--ink-faint);
-}
-.board-sub {
-  font-size: 11px;
-  color: var(--ink-faint);
-  font-family: var(--font-mono);
-  margin-top: 2px;
-}
-.board-sub.dim {
-  color: var(--ink-faint);
-  opacity: 0.8;
-}
-.board-agg {
-  color: var(--accent);
-}
+.board-row.thin .board-text { color: var(--ink-dim); }
+.board-fact { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); flex: 0 0 auto; }
+.board-counts { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+.board-sub { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); margin-top: 2px; }
+.board-sub.dim { opacity: 0.8; }
+.board-agg { color: var(--accent); }
 
 /* continue button — anchored, deliberate */
 .continue-btn {
-  margin-top: 14px;
+  margin-top: var(--sp-4);
   background: transparent;
   border: 1px solid var(--canonical);
   color: var(--canonical);
   font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  padding: 10px 16px;
-  border-radius: 3px;
-  cursor: pointer;
+  font-size: 12px; letter-spacing: 0.08em;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: 3px; cursor: pointer;
   transition: background var(--motion) var(--ease), color var(--motion) var(--ease);
 }
-.continue-btn:hover {
-  background: var(--canonical);
-  color: #1a1409;
-}
-.continue-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
+.continue-btn:hover { background: var(--canonical); color: #1a1409; }
+.continue-btn:disabled { opacity: 0.4; cursor: default; }
 
-/* ============================== TRAVEL CHIPS ============================== */
-.chip {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  color: var(--ink-dim);
+/* ==========================================================================
+   Command input — a single clear line at the foot of the page.
+   ========================================================================== */
+.inputbar {
+  grid-area: input;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border);
+  padding: var(--sp-4) var(--sp-6);
+  display: flex;
+  gap: var(--sp-4);
+  align-items: center;
+}
+.inputbar input {
+  flex: 1;
   background: var(--bg-sunken);
-  user-select: none;
-  cursor: pointer;
-  transition: border-color var(--motion) var(--ease), color var(--motion) var(--ease);
-}
-.chip:hover {
-  border-color: var(--accent-soft);
+  border: 1px solid var(--border-strong);
   color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: var(--fs-prose);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: 3px;
+  outline: none;
 }
-.chip-active {
-  border-color: var(--canonical);
-  color: var(--canonical);
+.inputbar input::placeholder { color: var(--ink-faint); font-style: italic; }
+.inputbar input:focus { border-color: var(--accent-soft); }
+.inputbar button {
+  background: var(--accent-soft);
+  color: #1a1409;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 0 var(--sp-5);
+  border-radius: 3px; cursor: pointer;
+  transition: background var(--motion) var(--ease);
 }
-.chip-locked {
-  text-decoration: line-through;
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.chip-return {
-  border-color: var(--chris);
-  color: var(--chris);
-}
-.chip-free {
-  border-color: var(--canonical);
-  color: var(--canonical);
-  margin-left: auto;
+.inputbar button:hover { background: var(--accent); }
+.inputbar button:disabled { opacity: 0.4; cursor: default; }
+.input-hint {
+  position: absolute;
+  left: var(--sp-6);
+  bottom: 58px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  pointer-events: none;
+  opacity: 0.85;
 }
 
-/* ============================== TOAST ==================================== */
+/* hint cycling affordance under the input */
+.input-modes {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faintest);
+  margin-top: 7px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   Toast + travel chips + overlays
+   ========================================================================== */
 .toast {
   position: fixed;
-  bottom: 84px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 84px; left: 50%; transform: translateX(-50%);
   background: var(--bg-soft);
   border: 1px solid var(--border-strong);
   border-left: 2px solid var(--accent);
@@ -741,162 +520,28 @@ button:disabled {
   font-family: var(--font-serif);
   z-index: 10;
 }
-
-/* ============================ RESPONSIVE =================================
-   Mobile is a first-class layout, not hidden information.
-   Rails collapse into a translucent lower drawer that the player can open,
-   and the narrative stays the primary surface at every width.
-   ========================================================================= */
-.tabbar {
-  display: none;
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--ink-dim);
+  background: var(--bg-sunken);
+  user-select: none; cursor: pointer;
+  transition: border-color var(--motion) var(--ease), color var(--motion) var(--ease);
 }
+.chip:hover { border-color: var(--accent-soft); color: var(--ink); }
+.chip-active { border-color: var(--canonical); color: var(--canonical); }
+.chip-locked { text-decoration: line-through; opacity: 0.4; cursor: not-allowed; }
+.chip-return { border-color: var(--chris); color: var(--chris); }
+.chip-free { border-color: var(--canonical); color: var(--canonical); margin-left: auto; }
 
-@media (max-width: 900px) {
-  .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      "header"
-      "travel"
-      "center"
-      "input";
-    border-left: none;
-    border-right: none;
-    height: 100dvh;
-  }
-  .header {
-    padding: 14px 16px 12px;
-  }
-  .header h1 {
-    font-size: 20px;
-    letter-spacing: 0.28em;
-  }
-  .center {
-    padding: 22px 18px 26px;
-  }
-  .line .body {
-    font-size: 17px;
-  }
-  .travel-bar {
-    padding: 8px 16px;
-    overflow-x: auto;
-  }
+.tabbar { display: none; }
 
-  /* rails become a bottom drawer, toggled by a tab bar */
-  .panel-left,
-  .panel-right {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 56px; /* above the tab bar */
-    top: auto;
-    max-height: 62dvh;
-    overflow-y: auto;
-    border: none;
-    border-top: 1px solid var(--border-strong);
-    background: var(--bg-panel);
-    transform: translateY(100%);
-    transition: transform var(--motion) var(--ease);
-    z-index: 8;
-  }
-  .panel-left.open,
-  .panel-right.open {
-    transform: translateY(0);
-  }
-  .panel-left {
-    border-right: none;
-  }
-  .panel-right {
-    border-left: none;
-  }
-
-  .tabbar {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 56px;
-    background: var(--bg-soft);
-    border-top: 1px solid var(--border-strong);
-    z-index: 9;
-  }
-  .tabbar button {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--ink-faint);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
-  .tabbar button.active {
-    color: var(--accent);
-    border-top: 2px solid var(--accent);
-  }
-  .inputbar {
-    padding-bottom: 72px; /* clear the tab bar */
-  }
-  .toast {
-    bottom: 70px;
-  }
-}
-
-@media (max-width: 560px) {
-  .header .save {
-    display: none;
-  }
-  .center {
-    padding: 18px 14px 22px;
-  }
-  .line .body {
-    font-size: 16px;
-  }
-}
-
-/* ========================= REDUCED MOTION ================================ */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-  .panel-left,
-  .panel-right {
-    transition: none !important;
-  }
-}
-
-/* ========================= INPUT AFFORDANCE ============================== */
-.input-hint {
-  position: absolute;
-  left: 24px;
-  bottom: 58px;
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--ink-faint);
-  pointer-events: none;
-  opacity: 0.85;
-}
-@media (max-width: 880px) {
-  .input-hint {
-    bottom: 64px;
-  }
-}
-
-/* ========================= CONFIRM OVERLAY =============================== */
 .confirm-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-items: center;
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
   background: rgba(8, 8, 10, 0.62);
   backdrop-filter: blur(2px);
 }
@@ -907,40 +552,89 @@ button:disabled {
   padding: 22px 26px;
   max-width: 360px;
   color: var(--ink);
-  font-family: var(--mono);
+  font-family: var(--font-serif);
   font-size: 14px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
 }
-.confirm-box p {
-  margin: 0 0 16px;
-  line-height: 1.5;
-}
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 14px;
-}
-.confirm-danger {
-  color: var(--contradiction);
-}
-/* ADR-011: free-chat with the reconstruction — one-time ethical disclosure. */
-.chat-disclosure {
-  max-width: 420px;
-  border-color: var(--accent);
-}
+.confirm-box p { margin: 0 0 16px; line-height: 1.5; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 14px; }
+.confirm-danger { color: var(--contradiction); }
+.chat-disclosure { max-width: 420px; border-color: var(--accent); }
 .chat-disclosure h3 {
   margin: 0 0 12px;
-  font-family: var(--serif);
-  font-size: 19px;
-  color: var(--accent);
-  letter-spacing: 0.01em;
+  font-family: var(--font-display);
+  font-size: 19px; color: var(--accent); letter-spacing: 0.01em;
 }
-.chat-disclosure p {
-  margin: 0 0 18px;
-  line-height: 1.6;
-  color: var(--ink);
-}
-.chat-disclosure .confirm-actions {
-  justify-content: flex-end;
+.chat-disclosure p { margin: 0 0 18px; line-height: 1.6; color: var(--ink); }
+.chat-disclosure .confirm-actions { justify-content: flex-end; }
+
+/* ==========================================================================
+   Responsive — mobile is a first-class reading surface.
+   The case file becomes a collapsible bottom sheet; the story stays primary.
+   ========================================================================== */
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "header"
+      "travel"
+      "center"
+      "input";
+    border-left: none; border-right: none;
+  }
+  .header { padding: var(--sp-4) var(--sp-4) var(--sp-3); }
+  .header h1 { font-size: 24px; letter-spacing: 0.28em; }
+  .center { padding: var(--sp-5) var(--sp-4) var(--sp-5); }
+  .line .body { font-size: 17px; }
+  .travel-bar { padding: var(--sp-2) var(--sp-4); overflow-x: auto; }
+
+  .file {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: 56px; top: auto;
+    max-height: 64dvh;
+    overflow-y: auto;
+    border: none;
+    border-top: 1px solid var(--border-strong);
+    transform: translateY(100%);
+    transition: transform var(--motion) var(--ease);
+    z-index: 8;
+  }
+  .file.open { transform: translateY(0); }
+
+  .tabbar {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 56px;
+    background: var(--bg-soft);
+    border-top: 1px solid var(--border-strong);
+    z-index: 9;
+  }
+  .tabbar button {
+    flex: 1; background: none; border: none;
+    color: var(--ink-faint);
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+  }
+  .tabbar button.active { color: var(--accent); border-top: 2px solid var(--accent); }
+  .inputbar { padding-bottom: 72px; }
+  .toast { bottom: 70px; }
 }
 
+@media (max-width: 560px) {
+  .header .meta { display: none; }
+  .center { padding: var(--sp-4) var(--sp-3) var(--sp-4); }
+  .line .body { font-size: 16px; }
+  .input-hint { bottom: 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .file { transition: none !important; }
+}

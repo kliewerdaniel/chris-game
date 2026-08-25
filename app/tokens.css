@@ -1,0 +1,81 @@
+/* ==========================================================================
+   CHRIS — design tokens
+   A literary reconstruction instrument under lamplight.
+   Manuscript-first. No glassmorphism, no AI gradients, no neon.
+
+   These are the ONLY source of color / type / spacing. Components reference
+   var(--*) exclusively — no ad-hoc literals.
+   ========================================================================== */
+
+:root {
+  /* ---- surfaces: warm, dim, paper-like ---- */
+  --bg: #0e0d0b;          /* near-black, faint warm */
+  --bg-soft: #161310;     /* raised panel / header */
+  --bg-panel: #131110;    /* the case file */
+  --bg-sunken: #0a0908;   /* inset wells (evidence body, board) */
+
+  /* ---- ink (manuscript text) ---- */
+  --ink: #e9e2d4;         /* primary */
+  --ink-dim: #a59c8b;     /* secondary */
+  --ink-faint: #6f675a;   /* tertiary / labels */
+  --ink-faintest: #4a4438;
+
+  /* ---- lamplight accent ---- */
+  --accent: #c69a4c;      /* muted gold — the lamp */
+  --accent-soft: #8a6f3c;
+  --accent-bright: #e3b863;
+
+  /* ---- epistemic palette (semantic) ---- */
+  /* Each status: a hue AND a texture cue (border-style) so the distinction
+     survives without color. Canonical = anchored gold. Testimony = clay,
+     attributed. Belief = slate, provisional (dashed). Hypothesis = periwinkle,
+     speculative (dotted). Rumor = muted, low-fidelity. Observation = quiet
+     green (seen). Contradiction = iron-rust, tension (double). Unknown =
+     intentional negative space. */
+  --canonical: #c8a24a;
+  --testimony: #c2845a;
+  --belief: #7f8c93;
+  --hypothesis: #8f93c4;
+  --rumor: #9a8f7a;
+  --contradiction: #b05c44;
+  --unknown: #3b3833;
+  --observation: #9fb29a;
+  --chris: #b7c4c7;       /* the reconstruction's voice — cool steel */
+
+  /* ---- lines ---- */
+  --border: #2a2620;
+  --border-soft: #1d1a16;
+  --border-strong: #3a352c;
+
+  /* ---- type families (wired to next/font in layout.tsx) ---- */
+  --font-display: var(--font-fraunces), "Iowan Old Style", Palatino, Georgia, serif;
+  --font-serif: var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-mono: var(--font-plex), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* ---- type scale ---- */
+  --fs-wordmark: 30px;
+  --fs-chapter: 30px;
+  --fs-eyebrow: 11px;
+  --fs-prose: 19px;
+  --fs-body: 15px;
+  --fs-label: 10px;
+  --fs-cue: 13px;
+  --lh-prose: 1.72;
+  --lh-body: 1.62;
+  --maxw-prose: 68ch;
+  --maxw: 1200px;
+
+  /* ---- spacing scale ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* ---- motion: only to communicate a state change ---- */
+  --motion: 160ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}

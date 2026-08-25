@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Newsreader, Fraunces, IBM_Plex_Mono } from "next/font/google";
+import "./tokens.css";
 import "./globals.css";
 
 const newsreader = Newsreader({

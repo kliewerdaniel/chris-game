@@ -19,9 +19,8 @@ import { parseAction, isConfident } from "../lib/inference/intent";
 import {
   GameHeader,
   TravelBar,
-  WorldPanel,
   NarrativeLog,
-  EvidencePanel,
+  CaseFile,
   CommandInput,
   Toast,
   TabBar,
@@ -83,6 +82,7 @@ export function GameClient() {
   // build time. The game is fully playable text-only.
   const ttsEnabled = process.env.NEXT_PUBLIC_TTS_ENABLED === "1";
   const [mobileTab, setMobileTab] = useState<"world" | "board" | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
@@ -98,6 +98,24 @@ export function GameClient() {
   const logVersionRef = useRef(0);
   const voiceOnRef = useRef(false);
   voiceOnRef.current = voiceOn;
+
+  // Rotating placeholder — quiet affordance, not a permanent command wall.
+  const PLACEHOLDERS = [
+    "What do you do?",
+    "What do you say to the feed?",
+    "Ask the reconstruction something.",
+    "Type a command, or just talk. (type 'help' for the grammar)",
+  ];
+  const [affordance, setAffordance] = useState(PLACEHOLDERS[0]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setAffordance((cur) => {
+        const next = (PLACEHOLDERS.indexOf(cur) + 1) % PLACEHOLDERS.length;
+        return PLACEHOLDERS[next];
+      });
+    }, 4500);
+    return () => clearInterval(id);
+  }, []);
 
   // The deterministic engine runs CLIENT-SIDE. It is built once (it holds a
   // retrieval index + narrator) and reused for every turn. Narration is the only
@@ -598,8 +616,6 @@ export function GameClient() {
         onReturnToLive={returnToLive}
       />
 
-      <WorldPanel ws={ws} meta={meta} mobileTab={mobileTab} />
-
       <NarrativeLog
         log={log}
         tts={tts}
@@ -613,16 +629,19 @@ export function GameClient() {
         onScroll={onScroll}
       />
 
-      <EvidencePanel
+      <CaseFile
         boardOpen={boardOpen}
         board={board}
         onCloseBoard={() => setBoardOpen(false)}
         evidence={evidence}
         established={established}
         ws={ws}
+        meta={meta}
         commandHints={commandHints(ws)}
-        onPickCommand={(c) => setInput(c)}
-        mobileTab={mobileTab}
+        onPickCommand={(c: string) => setInput(c)}
+        helpOpen={helpOpen}
+        onToggleHelp={() => setHelpOpen((v) => !v)}
+        fileOpen={mobileTab === "board"}
       />
 
       <CommandInput
@@ -632,11 +651,15 @@ export function GameClient() {
         onSend={send}
         onKey={onKey}
         inputRef={inputRef}
-        affordance="Type what you want Chris to do — then press Enter."
+        affordance={affordance}
+        modeHint="look · talk · ask · examine · confront · help"
       />
 
       <Toast toast={toast} />
-      <TabBar active={mobileTab} onTab={(t) => setMobileTab((cur) => (cur === t ? null : t))} />
+      <TabBar
+        fileOpen={mobileTab === "board"}
+        onToggle={() => setMobileTab((cur) => (cur === "board" ? null : "board"))}
+      />
 
       {confirmNew && (
         <div className="confirm-overlay" role="dialog" aria-modal="true">
@@ -662,7 +685,7 @@ export function GameClient() {
       )}
 
       {chatDisclosure && (
-        <div className="confirm-overlay" role="dialog" aria-modal="true">
+        <div className="confirm-overlay" role="dialog" aria-modal="true" aria-label="reconstruction disclosure">
           <div className="confirm-box chat-disclosure">
             <h3>This is a reconstruction.</h3>
             <p>

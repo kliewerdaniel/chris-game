@@ -308,8 +308,22 @@ export class GameEngine {
     }
     // Tag reconstruction replies as testimony/rumor, never canonical Chris.
     const speakerName = (isCharacterTurn ? speaker : "chris") === "reconstruction" ? "reconstruction" : characterId ?? "chris";
+    // ADR-UI: surface the engine's disclosure decision as a SUBTLE, in-fiction
+    // cue only. Truthful modes (truth/partial/unknown/joke) carry no marker —
+    // the player should not see a "lie" tag, only feel the evasion through the
+    // prose the engine already authored. The decision is deterministic engine
+    // state, never model-set.
+    const showHandling =
+      isCharacterTurn && handling && handling !== "truth" && handling !== "partial" && handling !== "unknown" && handling !== "joke";
     return {
-      lines: [...result.narration, ...outcome.lines.map((l) => ({ ...l, speaker: speakerName as any }))],
+      lines: [
+        ...result.narration,
+        ...outcome.lines.map((l) => ({
+          ...l,
+          speaker: speakerName as any,
+          ...(showHandling ? { handling } : {}),
+        })),
+      ],
       state: nextState,
     };
   }

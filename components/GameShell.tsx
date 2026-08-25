@@ -1,30 +1,30 @@
 /**
- * GameShell presentational components (Iteration 1 — architecture prep).
+ * GameShell — presentational components for the CHRIS literary surface.
  *
- * These are PURE, prop-driven render components extracted from the former
- * monolithic GameClient.tsx. They contain NO game state and NO game logic —
- * they receive exactly the data the old closures provided and render the same
- * markup. This keeps behavior byte-for-byte identical while creating clean
- * boundaries for the later visual redesign (tokens, epistemic language, R3F).
+ * Pure, prop-driven render components. No game state, no game logic. Extracted
+ * from the former monolithic GameClient so the visual redesign has clean
+ * boundaries. Styling is driven entirely by tokens (app/tokens.css); these
+ * components reference var(--*) only.
  *
- * The only deliberate behavioral change is an accessibility fix: interactive
- * actions are now real <button> elements (keyboard + focus + screen-reader
- * correct) instead of <a onClick>. Styling is preserved via `.asbtn`.
+ * Accessibility: interactive actions are real <button>s.
  */
 
-import type { WorldState, NarrationLine, Evidence, FactStatus } from "../lib/core/types";
+import type { WorldState, NarrationLine, Evidence, FactStatus, DisclosureMode } from "../lib/core/types";
+import { getFact } from "../lib/core/facts";
 import type { TravelJournal } from "../lib/core/travel";
 import { canTravelTo, isFreeTravel } from "../lib/core/travel";
 import type { EpisodeMeta } from "./episode-meta";
 import type { InvestigationPayload } from "./investigation-payload";
 import type { TtsLine } from "./tts-types";
 
-// ---------- shared helpers (moved up so subcomponents can use them) ----------
+// ---------- shared helpers ----------
 
 export function statusClass(s?: FactStatus): string {
   if (s === "testimony" || s === "rumor") return "status-testimony";
   if (s === "canonical") return "status-canonical";
   if (s === "observation") return "status-observation";
+  if (s === "belief") return "status-belief";
+  if (s === "hypothesis") return "status-hypothesis";
   return "status-unknown";
 }
 export function statusLabel(s?: FactStatus): string {
@@ -43,35 +43,39 @@ export function fmtTime(t: { day: number; hour: number; minute: number }): strin
   return `${h}:${t.minute.toString().padStart(2, "0")} ${ampm}`;
 }
 
+/**
+ * SUBTLE in-fiction disclosure cue. The engine decides per-topic whether Chris
+ * tells the truth / partial / LIES / withholds (DisclosureMode). We surface it
+ * as a quiet diegetic whisper — NOT a meta-tag, never a "LIE" label. The player
+ * feels the evasion through prose, which is the whole point of the epistemic
+ * mechanic. Truthful modes carry no cue at all.
+ */
+const DISCLOSURE_CUES: Partial<Record<DisclosureMode, string>> = {
+  lie: "He says it like he means it. You can't tell if he believes it.",
+  withhold: "He doesn't answer that. The silence is deliberate.",
+  deflect: "He laughs it off and turns to something else.",
+  threaten: "Something in his voice goes cold.",
+};
+export function cueFor(handling?: DisclosureMode): string | undefined {
+  return handling ? DISCLOSURE_CUES[handling] : undefined;
+}
+
 // ---------------------------------------------------------------------------
-// TabBar (mobile only — first-class rail access, not hidden info)
+// Mobile tab bar (single toggle for the case file)
 // ---------------------------------------------------------------------------
-export function TabBar(props: { active: "world" | "board" | null; onTab: (t: "world" | "board") => void }) {
-  const { active, onTab } = props;
+export function TabBar(props: { fileOpen: boolean; onToggle: () => void }) {
+  const { fileOpen, onToggle } = props;
   return (
     <nav className="tabbar" aria-label="panels">
-      <button
-        type="button"
-        className={active === "world" ? "active" : ""}
-        onClick={() => onTab("world")}
-        aria-pressed={active === "world"}
-      >
-        World
-      </button>
-      <button
-        type="button"
-        className={active === "board" ? "active" : ""}
-        onClick={() => onTab("board")}
-        aria-pressed={active === "board"}
-      >
-        Board
+      <button type="button" className={fileOpen ? "active" : ""} onClick={onToggle} aria-pressed={fileOpen}>
+        Case File
       </button>
     </nav>
   );
 }
 
 // ---------------------------------------------------------------------------
-// GameHeader
+// Header — wordmark + chapter + controls
 // ---------------------------------------------------------------------------
 export function GameHeader(props: {
   meta: EpisodeMeta | null;
@@ -88,27 +92,26 @@ export function GameHeader(props: {
       <div>
         <h1>CHRIS</h1>
         <div className="sub">
-          {meta ? `episode ${roman(meta.index)} · ${meta.title.toLowerCase()}` : "a literary survival mystery"}
+          {meta
+            ? `episode ${roman(meta.index)} · ${meta.title.toLowerCase()}`
+            : "a literary survival mystery"}
         </div>
       </div>
-      <div className="save">
-        {ws ? `Day ${ws.time.day} · ${fmtTime(ws.time)}` : ""}
-        <br />
-        {ttsEnabled && (
-          <>
+      <div className="meta">
+        <div className="clock">{ws ? `Day ${ws.time.day} · ${fmtTime(ws.time)}` : ""}</div>
+        <div className="tools">
+          {ttsEnabled && (
             <button type="button" onClick={onToggleVoice} className={`asbtn ${voiceOn ? "voice-on" : ""}`}>
-              [{voiceOn ? "🔊 voice on" : "🔈 voice off"}]
+              [{voiceOn ? "voice on" : "voice off"}]
             </button>
-            {" · "}
-          </>
-        )}
-        <button type="button" onClick={onNewGame} className="asbtn">
-          [new game]
-        </button>
-        {" · "}
-        <button type="button" onClick={onOpenBoard} className="asbtn">
-          [board]
-        </button>
+          )}
+          <button type="button" onClick={onNewGame} className="asbtn">
+            [new game]
+          </button>
+          <button type="button" onClick={onOpenBoard} className="asbtn">
+            [board]
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -165,52 +168,6 @@ export function TravelBar(props: {
 }
 
 // ---------------------------------------------------------------------------
-// WorldPanel (left rail: world + quests)
-// ---------------------------------------------------------------------------
-export function WorldPanel(props: { ws: WorldState | null; meta: EpisodeMeta | null; mobileTab?: "world" | "board" | null }) {
-  const { ws, meta, mobileTab } = props;
-  if (!ws) return <aside className={`panel-left${mobileTab === "world" ? " open" : ""}`} />;
-  return (
-    <aside className={`panel-left${mobileTab === "world" ? " open" : ""}`}>
-      <div className="section-title">World</div>
-      <div className="world-line">
-        <span className="k">EPISODE</span>
-        <span className="v">{meta ? `${roman(meta.index)} · ${meta.title}` : ws.episodeId}</span>
-      </div>
-      <div className="world-line">
-        <span className="k">LOCATION</span>
-        <span className="v">{prettyLoc(ws.location)}</span>
-      </div>
-      <div className="world-line">
-        <span className="k">HEALTH</span>
-        <span className="v">{ws.player.health}</span>
-      </div>
-      <div className="world-line">
-        <span className="k">STAMINA</span>
-        <span className="v">{ws.player.stamina}</span>
-      </div>
-      <div className="world-line">
-        <span className="k">TRUST·CHRIS</span>
-        <span className="v">{ws.characterStates.chris?.trust ?? "—"}</span>
-      </div>
-      <div className="world-line">
-        <span className="k">SOCIAL</span>
-        <span className="v">{ws.player.socialTrust}</span>
-      </div>
-      <div className="section-title">Quests</div>
-      {Object.values(ws.quests).map((q) => (
-        <div className="world-line" key={q.id}>
-          <span className="v" style={{ fontSize: 13 }}>
-            {q.status === "done" ? "✓ " : "• "}
-            {q.title}
-          </span>
-        </div>
-      ))}
-    </aside>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // NarrativeLog + NarrationLineView
 // ---------------------------------------------------------------------------
 const SPOKEN_SPEAKERS = new Set(["chris", "feed", "reconstruction", "mother", "evidence"]);
@@ -226,6 +183,7 @@ export function NarrationLineView(props: {
   onStop: (i: number) => void;
 }) {
   const { line, index, tts, onPlay, onStop } = props;
+  const cue = cueFor(line.handling);
   return (
     <div className={`line ${line.speaker}`} key={index}>
       {line.speaker !== "player" && line.speaker !== "system" && (
@@ -236,6 +194,7 @@ export function NarrationLineView(props: {
       )}
       {line.speaker === "system" && <span className="who system">»</span>}
       <div className="body">{line.text}</div>
+      {cue && <span className="cue">{cue}</span>}
       {isSpokenSpeaker(line.speaker) && line.text.trim() && (
         <span className="tts-row">
           {tts[index]?.status === "loading" && <span className="tts-spin" title="Generating speech…" aria-label="generating" />}
@@ -243,13 +202,9 @@ export function NarrationLineView(props: {
           {tts[index]?.status === "muted" && <span className="tts-muted" title="Line too long to narrate — read it instead">🔇</span>}
           {(tts[index]?.url || !tts[index] || tts[index]?.status === "error") && tts[index]?.status !== "loading" && tts[index]?.status !== "muted" && (
             tts[index]?.status === "playing" ? (
-              <button type="button" className="tts-btn" onClick={() => onStop(index)} title="Stop">
-                ⏸
-              </button>
+              <button type="button" className="tts-btn" onClick={() => onStop(index)} title="Stop">⏸</button>
             ) : (
-              <button type="button" className="tts-btn" onClick={() => onPlay(index)} title="Play">
-                ▶
-              </button>
+              <button type="button" className="tts-btn" onClick={() => onPlay(index)} title="Play">▶</button>
             )
           )}
         </span>
@@ -303,31 +258,38 @@ export function NarrativeLog(props: {
 }
 
 // ---------------------------------------------------------------------------
-// EvidencePanel (right rail: board + evidence + facts + commands)
+// CaseFile (right rail) — the detective's marginalia: world facts, evidence,
+// established facts, and a collapsed command affordance.
 // ---------------------------------------------------------------------------
-export function EvidencePanel(props: {
+export function CaseFile(props: {
   boardOpen: boolean;
   board: InvestigationPayload | null;
   onCloseBoard: () => void;
   evidence: Evidence[];
   established: string[];
   ws: WorldState | null;
+  meta: EpisodeMeta | null;
   commandHints: string[];
   onPickCommand: (c: string) => void;
-  mobileTab?: "world" | "board" | null;
+  helpOpen: boolean;
+  onToggleHelp: () => void;
+  fileOpen?: boolean;
 }) {
-  const { boardOpen, board, onCloseBoard, evidence, established, ws, commandHints, onPickCommand, mobileTab } = props;
+  const {
+    boardOpen, board, onCloseBoard, evidence, established, ws, meta,
+    commandHints, onPickCommand, helpOpen, onToggleHelp, fileOpen,
+  } = props;
   return (
-    <aside className={`panel-right${mobileTab === "board" ? " open" : ""}`}>
+    <aside className={`file${fileOpen ? " open" : ""}`}>
       {boardOpen && (
         <div className="board-wrap">
           <div className="section-title board-title">
             Consistency Board
             {board?.timelines && board.timelines.length > 1 && (
-              <span className="board-agg"> · across {board.timelines.length} timelines</span>
-            )}
-            {board?.timelines && board.timelines.length > 1 && (
-              <div className="board-timelines">{board.timelines.map((t) => t.toUpperCase()).join("  ·  ")}</div>
+              <>
+                <span className="board-agg"> · across {board.timelines.length} timelines</span>
+                <div className="board-timelines">{board.timelines.map((t) => t.toUpperCase()).join("  ·  ")}</div>
+              </>
             )}
             <button type="button" onClick={onCloseBoard} className="asbtn" style={{ float: "right", fontSize: 11 }}>
               [close]
@@ -380,31 +342,68 @@ export function EvidencePanel(props: {
           )}
         </div>
       )}
+
+      <div className="section-title">The Case</div>
+      <div className="fact-line">
+        <span className="k">EPISODE</span>
+        <span className="v">{meta ? `${roman(meta.index)} · ${meta.title}` : ws?.episodeId}</span>
+      </div>
+      <div className="fact-line">
+        <span className="k">LOCATION</span>
+        <span className="v">{ws ? prettyLoc(ws.location) : "—"}</span>
+      </div>
+      <div className="fact-line">
+        <span className="k">TRUST · CHRIS</span>
+        <span className="v">{ws?.characterStates.chris?.trust ?? "—"}</span>
+      </div>
+      {Object.values(ws?.quests ?? {}).length > 0 && (
+        <>
+          <div className="section-title">Threads</div>
+          {Object.values(ws!.quests).map((q) => (
+            <div className="quest" key={q.id}>
+              <span className={q.status === "done" ? "done" : q.status === "blocked" ? "blocked" : ""}>
+                {q.status === "done" ? "✓ " : q.status === "blocked" ? "✕ " : "• "}
+                {q.title}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+
       <div className="section-title">Evidence</div>
       {evidence.length === 0 && <div className="empty">Nothing recovered yet. Search the room.</div>}
       {evidence.map((e) => (
-        <div className="ev-item" key={e.id}>
+        <div key={e.id} className={`ev-item ${e.status === "canonical" ? "is-canonical" : e.status === "observation" ? "is-observation" : e.status === "testimony" ? "is-testimony" : ""}`}>
           <div className="t">{e.title}</div>
           <div className="c">{e.content}</div>
-          <span className={`tag ${e.status === "canonical" ? "canon" : e.status === "observation" ? "test" : "unk"}`}>{e.kind}</span>
         </div>
       ))}
 
-      <div className="section-title">Established Facts</div>
+      <div className="section-title">Established</div>
       {established.length === 0 && <div className="empty">No facts established yet.</div>}
-      {established.map((f, i) => (
-        <div className="fact-item" key={i}>
-          <span className="t">{f}</span>
-          <span className="tag canon">canon</span>
-        </div>
-      ))}
+      {established.map((id, i) => {
+        const f = getFact(id);
+        return (
+          <div className="fact-item" key={i}>
+            <span>{f ? f.statement : id}</span>
+            {f && f.provenance && <span className="src">{f.provenance.sourceType}</span>}
+          </div>
+        );
+      })}
 
-      <div className="section-title">Commands</div>
-      {commandHints.map((c) => (
-        <div className="help-row" key={c} style={{ cursor: "pointer" }} onClick={() => onPickCommand(c)}>
-          {c}
+      <div className="section-title">What You Can Do</div>
+      <button type="button" className="help-toggle" onClick={onToggleHelp} aria-expanded={helpOpen}>
+        Commands &amp; grammar <span className="chev">{helpOpen ? "▾" : "▸"}</span>
+      </button>
+      {helpOpen && (
+        <div className="help-list">
+          {commandHints.map((c) => (
+            <div className="help-row" key={c} style={{ cursor: "pointer" }} onClick={() => onPickCommand(c)}>
+              {c}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </aside>
   );
 }
@@ -420,8 +419,9 @@ export function CommandInput(props: {
   onKey: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   inputRef: React.RefObject<HTMLInputElement>;
   affordance?: string;
+  modeHint?: string;
 }) {
-  const { input, busy, onChange, onSend, onKey, inputRef, affordance } = props;
+  const { input, busy, onChange, onSend, onKey, inputRef, affordance, modeHint } = props;
   return (
     <div className="inputbar">
       <input
@@ -429,13 +429,13 @@ export function CommandInput(props: {
         value={input}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKey}
-        placeholder={busy ? "…" : "What do you do?"}
+        placeholder={busy ? "…" : affordance ?? "What do you do?"}
         aria-label="command input"
       />
       <button type="button" onClick={onSend} disabled={busy || !input.trim()}>
         {busy ? "…" : "SAY"}
       </button>
-      {affordance && !input && <div className="input-hint">{affordance}</div>}
+      {modeHint && !input && <div className="input-modes">{modeHint}</div>}
     </div>
   );
 }
@@ -450,13 +450,14 @@ export function Toast(props: { toast: string | null }) {
     <div
       style={{
         position: "fixed",
-        bottom: 78,
+        bottom: 84,
         left: "50%",
         transform: "translateX(-50%)",
         background: "var(--bg-soft)",
-        border: "1px solid var(--border)",
+        border: "1px solid var(--border-strong)",
+        borderLeft: "2px solid var(--accent)",
         color: "var(--ink)",
-        padding: "8px 16px",
+        padding: "9px 18px",
         borderRadius: 3,
         fontSize: 13,
         zIndex: 10,

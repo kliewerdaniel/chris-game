@@ -9,3 +9,5 @@ data/compiled/_generated_*.json
 tsconfig.tsbuildinfo
 .vercel
 .env*
+test-results/
+playwright-report/

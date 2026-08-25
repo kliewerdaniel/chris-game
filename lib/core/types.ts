@@ -340,6 +340,13 @@ export interface NarrationLine {
   ref?: { kind: "evidence" | "fact" | "memory"; id: string };
   /** epistemic tag for styling (testimony vs canonical). */
   status?: FactStatus;
+  /** Engine disclosure decision that produced this line (lie / withhold /
+   *  deflect / threaten / …). Set ONLY on character/reconstruction replies and
+   *  ONLY for non-truthful modes; `truth`/`partial`/`unknown`/`joke` stay
+   *  undefined. The UI renders a subtle IN-FICTION cue from this — never a
+   *  meta-tag. The decision is engine-owned and deterministic; the model never
+   *  sets this. */
+  handling?: DisclosureMode;
 }
 
 // ---------------------------------------------------------------------------
