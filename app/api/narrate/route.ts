@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildInferenceManager } from "../../../lib/inference/provider";
 import { NarrateRequest } from "../../../lib/inference/narrate-backend";
+import { guardNarration, spendCaps } from "../../../lib/server/spend-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing prompt" }, { status: 400 });
   }
 
+  // ADR-010: clamp + spend guard. Deny fails closed (429) — client falls back
+  // to deterministic prose, so play continues without model-voice narration.
+  const requestedMax = body.maxTokens ?? 400;
+  const spend = guardNarration(
+    body.systemInstruction.length,
+    body.userPrompt.length,
+    requestedMax,
+  );
+  if (!spend.ok) {
+    return NextResponse.json(
+      { error: "narration throttled", reason: spend.reason },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
+  }
+  const maxTokens = spend.clampedMaxTokens;
+
   let manager;
   try {
     manager = buildInferenceManager();
@@ -48,7 +65,7 @@ export async function POST(req: NextRequest) {
         { role: "user", content: body.userPrompt },
       ],
       temperature: body.temperature ?? 0.6,
-      maxTokens: body.maxTokens ?? 400,
+      maxTokens,
     });
     const text = result.text?.trim();
     if (!text) return NextResponse.json({ error: "empty narration" }, { status: 503 });
@@ -67,5 +84,6 @@ export async function GET() {
     localOnly: true,
     endpoints: ["/api/narrate"],
     narrationSource: hasHosted ? "hosted" : hasLocal ? "local" : "none",
+    spendCaps: spendCaps(),
   });
 }
