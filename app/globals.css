@@ -1,21 +1,56 @@
+/* ==========================================================================
+   CHRIS — design system (Iteration 2)
+   A literary reconstruction instrument under lamplight.
+   No glassmorphism, no AI gradients, no neon. Manuscript-first.
+   Epistemic states communicate WHY something is known, not how confident.
+   ========================================================================== */
+
 :root {
-  --bg: #0c0c0e;
-  --bg-soft: #141417;
-  --bg-panel: #111114;
-  --ink: #e8e4dc;
-  --ink-dim: #9a948a;
-  --ink-faint: #6a655d;
-  --accent: #c8a24a; /* muted gold — lamplight */
-  --accent-soft: #8c7a4a;
-  --chris: #b9c6c9; /* cool steel for Chris's voice */
-  --testimony: #c98a5a; /* testimony / contested — warm amber */
-  --canon: #9fb89a; /* canonical — quiet green */
-  --evidence: #c8a24a;
-  --border: #26242a;
-  --border-soft: #1c1b20;
-  --font-body: "Iowan Old Style", "Palatino Linotype", "Palatino", "Georgia", "Times New Roman", serif;
-  --font-mono: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
-  --maxw: 1200px;
+  /* --- surfaces: warm, dim, paper-like --- */
+  --bg: #0e0d0b; /* near-black, faint warm */
+  --bg-soft: #161310; /* raised panel */
+  --bg-panel: #131110; /* side rails */
+  --bg-sunken: #0a0908; /* inset wells (insets, board) */
+
+  /* --- ink (text) --- */
+  --ink: #e9e2d4; /* primary manuscript ink */
+  --ink-dim: #a59c8b; /* secondary */
+  --ink-faint: #6f675a; /* tertiary / labels */
+  --ink-faintest: #4a4438;
+
+  /* --- lamplight accent --- */
+  --accent: #c69a4c; /* muted gold — the lamp */
+  --accent-soft: #8a6f3c;
+  --accent-bright: #e3b863;
+
+  /* --- epistemic palette (semantic, distinct hues + distinct textures) --- */
+  --canonical: #c8a24a; /* established / gold / anchored */
+  --testimony: #c2845a; /* remembers / clay / attributed */
+  --belief: #7f8c93; /* believes / slate / provisional */
+  --hypothesis: #8f93c4; /* suspects / periwinkle / speculative */
+  --rumor: #9a8f7a; /* heard / low-fidelity / muted */
+  --contradiction: #b05c44; /* tension / iron-rust */
+  --unknown: #3b3833; /* intentional negative space */
+  --observation: #9fb29a; /* seen / quiet green */
+  --chris: #b7c4c7; /* the reconstruction's voice — cool steel */
+
+  /* --- lines --- */
+  --border: #2a2620;
+  --border-soft: #1d1a16;
+  --border-strong: #3a352c;
+
+  /* --- type --- */
+  --font-serif: var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-display: var(--font-fraunces), "Iowan Old Style", Palatino, Georgia, serif;
+  --font-mono: var(--font-plex), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --fs-base: 17px;
+  --lh-base: 1.62;
+  --maxw: 1180px;
+
+  /* motion: only to communicate a state change */
+  --motion: 160ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 * {
@@ -28,9 +63,9 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-body);
-  font-size: 17px;
-  line-height: 1.6;
+  font-family: var(--font-serif);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -42,27 +77,30 @@ a {
 
 ::selection {
   background: var(--accent);
-  color: #000;
+  color: #0a0805;
 }
 
-/* faint paper grain via layered radial gradients */
+/* faint paper grain + a single pool of lamplight, top-right. No gradients-as-decoration. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(1200px 600px at 70% -10%, rgba(200, 162, 74, 0.05), transparent 60%),
-    radial-gradient(900px 500px at 10% 110%, rgba(185, 198, 201, 0.04), transparent 60%);
+    radial-gradient(1100px 620px at 78% -12%, rgba(198, 154, 76, 0.06), transparent 62%),
+    radial-gradient(700px 480px at 12% 112%, rgba(183, 196, 199, 0.035), transparent 60%);
   z-index: 0;
 }
 
+/* --------------------------------------------------------------------------
+   App shell — story as the primary column, rails recede.
+   -------------------------------------------------------------------------- */
 .app {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 240px 1fr 300px;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-columns: 232px minmax(0, 1fr) 320px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-areas:
     "header header header"
     "travel travel travel"
@@ -79,9 +117,10 @@ body::before {
   border-right: 1px solid var(--border);
 }
 
+/* ---------------------------------- header --------------------------------- */
 .header {
   grid-area: header;
-  padding: 18px 24px 14px;
+  padding: 20px 26px 16px;
   background: var(--bg-soft);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -90,31 +129,80 @@ body::before {
   gap: 16px;
 }
 .header h1 {
-  font-size: 22px;
-  letter-spacing: 0.22em;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.34em;
+  font-weight: 400;
   margin: 0;
   color: var(--ink);
+  text-transform: uppercase;
 }
 .header .sub {
   color: var(--ink-faint);
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.14em;
   font-family: var(--font-mono);
+  margin-top: 4px;
+  text-transform: lowercase;
 }
 .header .save {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-faint);
+  text-align: right;
+  line-height: 1.7;
 }
-.header .save a.voice-on {
+.header .save a.voice-on,
+.header .save .asbtn.voice-on {
   color: var(--chris);
 }
 
+/* Inline-action reset: <button> that reads like the old inline link. */
+.asbtn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  letter-spacing: inherit;
+}
+.asbtn:hover {
+  color: var(--ink);
+}
+
+/* Honest disabled state. */
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Keyboard focus visibility — does not affect mouse users. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---------------------------------- travel --------------------------------- */
+.travel-bar {
+  grid-area: travel;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 26px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---------------------------------- rails ---------------------------------- */
 .panel-left {
   grid-area: left;
   background: var(--bg-panel);
-  padding: 18px 16px;
+  padding: 20px 18px;
   border-right: 1px solid var(--border);
   font-size: 14px;
   overflow-y: auto;
@@ -122,7 +210,7 @@ body::before {
 .panel-right {
   grid-area: right;
   background: var(--bg-panel);
-  padding: 18px 16px;
+  padding: 20px 18px;
   border-left: 1px solid var(--border);
   font-size: 14px;
   overflow-y: auto;
@@ -130,70 +218,81 @@ body::before {
 .center {
   grid-area: center;
   background: var(--bg);
-  padding: 26px 30px;
+  padding: 34px 56px 38px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.inputbar {
-  grid-area: input;
-  background: var(--bg-soft);
-  border-top: 1px solid var(--border);
-  padding: 14px 20px;
-  display: flex;
-  gap: 10px;
-}
 
+/* ------------------------------- section title ----------------------------- */
 .section-title {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-faint);
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   border-bottom: 1px solid var(--border-soft);
-  padding-bottom: 6px;
+  padding-bottom: 7px;
 }
 .section-title:not(:first-child) {
-  margin-top: 22px;
+  margin-top: 26px;
 }
 
+/* ---------------------------------- world ---------------------------------- */
 .world-line {
   display: flex;
   justify-content: space-between;
-  padding: 3px 0;
+  gap: 10px;
+  padding: 5px 0;
   color: var(--ink-dim);
+  border-bottom: 1px dotted var(--border-soft);
+}
+.world-line:last-child {
+  border-bottom: none;
 }
 .world-line .k {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
 }
 .world-line .v {
   color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-/* narrative */
+/* ============================== NARRATIVE ================================== */
 .narrative {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 22px;
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: 10px;
   scrollbar-gutter: stable;
+  max-width: 70ch;
+  margin: 0 auto;
+  width: 100%;
 }
 .line {
-  max-width: 64ch;
+  max-width: 68ch;
 }
 .line .who {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-faint);
   display: block;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
+}
+.line .body {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.66;
+  color: var(--ink);
 }
 .line.narrator .body {
   color: var(--ink);
@@ -208,43 +307,95 @@ body::before {
   font-size: 13px;
 }
 .line.evidence .body {
-  color: var(--evidence);
+  color: var(--observation);
   border-left: 2px solid var(--accent-soft);
-  padding-left: 12px;
+  padding-left: 14px;
   font-style: italic;
 }
 .line.player .body {
-  color: var(--ink);
+  color: var(--ink-dim);
+  font-style: italic;
 }
+.line.player .body::before {
+  content: "";
+}
+
+/* status tag — a label + a color. Never color alone. */
 .line .status-tag {
   font-family: var(--font-mono);
   font-size: 9px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 2px;
-  margin-left: 8px;
+  margin-left: 9px;
   vertical-align: middle;
+  border: 1px solid currentColor;
+}
+
+/* ====================== EPISTEMIC VISUAL LANGUAGE ==========================
+   Each status: a hue, plus a texture cue (border-style / fill) so the
+   distinction survives without color. Canonical is anchored (solid, gold).
+   Testimony attributed (clay). Belief provisional (slate, dashed). Hypothesis
+   speculative (periwinkle, dotted). Rumor low-fidelity (muted, faint). Unknown
+   is intentional negative space (no fill, insetting). Contradiction is tension
+   (iron-rust, double rule). Observation is quiet green (seen).
+   ========================================================================== */
+.status-canonical {
+  color: var(--canonical);
+  border: 1px solid var(--canonical);
+  background: rgba(200, 162, 74, 0.1);
 }
 .status-testimony {
   color: var(--testimony);
   border: 1px solid var(--testimony);
+  background: rgba(194, 132, 90, 0.1);
 }
-.status-canonical {
-  color: var(--canon);
-  border: 1px solid var(--canon);
+.status-belief {
+  color: var(--belief);
+  border: 1px dashed var(--belief);
+  background: rgba(127, 140, 147, 0.08);
+}
+.status-hypothesis {
+  color: var(--hypothesis);
+  border: 1px dotted var(--hypothesis);
+  background: rgba(143, 147, 196, 0.08);
+}
+.status-rumor {
+  color: var(--rumor);
+  border: 1px solid var(--rumor);
+  background: transparent;
+  opacity: 0.82;
+}
+.status-observation {
+  color: var(--observation);
+  border: 1px solid var(--observation);
+  background: rgba(159, 178, 154, 0.1);
 }
 .status-unknown {
   color: var(--ink-faint);
-  border: 1px solid var(--ink-faint);
+  border: 1px solid var(--ink-faintest);
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(111, 103, 90, 0.12) 4px,
+    rgba(111, 103, 90, 0.12) 8px
+  );
+}
+/* contradictory relationship — drawn as tension, not a neutral chip */
+.status-contradiction {
+  color: var(--contradiction);
+  border: 1px double var(--contradiction);
+  background: rgba(176, 92, 68, 0.1);
 }
 
-/* Per-line spoken-audio controls: spinner while generating, play/stop button. */
+/* --------------------------- spoken-audio controls ------------------------- */
 .tts-row {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 7px;
+  margin-top: 6px;
 }
 .tts-spin {
   width: 11px;
@@ -256,7 +407,9 @@ body::before {
   animation: tts-spin 0.8s linear infinite;
 }
 @keyframes tts-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .tts-btn {
   background: transparent;
@@ -265,51 +418,66 @@ body::before {
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 3px;
   cursor: pointer;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color var(--motion) var(--ease), color var(--motion) var(--ease);
 }
 .tts-btn:hover {
   border-color: var(--chris);
   color: var(--chris);
 }
 .tts-err {
-  color: var(--testimony);
+  color: var(--contradiction);
   font-size: 12px;
   cursor: default;
 }
 
-/* input */
+/* ================================ INPUT ==================================== */
+.inputbar {
+  grid-area: input;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 .inputbar input {
   flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-strong);
   color: var(--ink);
-  font-family: var(--font-body);
-  font-size: 16px;
-  padding: 10px 14px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  padding: 12px 16px;
   border-radius: 3px;
   outline: none;
+}
+.inputbar input::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
 }
 .inputbar input:focus {
   border-color: var(--accent-soft);
 }
 .inputbar button {
   background: var(--accent-soft);
-  color: #1a160d;
+  color: #1a1409;
   border: none;
   font-family: var(--font-mono);
   font-size: 12px;
-  letter-spacing: 0.08em;
-  padding: 0 18px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0 22px;
   border-radius: 3px;
   cursor: pointer;
+  transition: background var(--motion) var(--ease);
 }
 .inputbar button:hover {
   background: var(--accent);
@@ -319,28 +487,37 @@ body::before {
   cursor: default;
 }
 
-/* right panel lists */
+/* ============================ RIGHT-RAIL LISTS ============================= */
 .ev-item,
 .fact-item,
 .hyp-item {
   border: 1px solid var(--border-soft);
+  border-left: 2px solid var(--ink-faintest);
   border-radius: 3px;
-  padding: 8px 10px;
-  margin-bottom: 8px;
+  padding: 10px 12px;
+  margin-bottom: 9px;
   background: var(--bg-soft);
 }
 .ev-item .t {
-  color: var(--evidence);
+  color: var(--observation);
   font-size: 13px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
 }
 .ev-item .c {
   color: var(--ink-dim);
-  font-size: 12px;
-  margin-top: 3px;
+  font-size: 13px;
+  margin-top: 6px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+.fact-item {
+  border-left-color: var(--canonical);
 }
 .fact-item .t {
   font-size: 13px;
   color: var(--ink);
+  font-family: var(--font-mono);
 }
 .hyp-item .t {
   font-size: 13px;
@@ -349,17 +526,18 @@ body::before {
 .tag {
   font-family: var(--font-mono);
   font-size: 9px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 2px;
   border: 1px solid var(--ink-faint);
   color: var(--ink-faint);
-  margin-left: 6px;
+  margin-left: 7px;
+  white-space: nowrap;
 }
 .tag.canon {
-  color: var(--canon);
-  border-color: var(--canon);
+  color: var(--canonical);
+  border-color: var(--canonical);
 }
 .tag.test {
   color: var(--testimony);
@@ -367,7 +545,7 @@ body::before {
 }
 .tag.unk {
   color: var(--ink-faint);
-  border-color: var(--ink-faint);
+  border-color: var(--ink-faintest);
 }
 .empty {
   color: var(--ink-faint);
@@ -379,48 +557,53 @@ body::before {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--ink-dim);
-  padding: 2px 0;
+  padding: 3px 0;
+  cursor: pointer;
+  transition: color var(--motion) var(--ease);
+}
+.help-row:hover {
+  color: var(--accent);
 }
 
-/* consistency board */
+/* =========================== CONSISTENCY BOARD ============================= */
 .board-wrap {
-  border: 1px solid var(--accent-soft);
+  border: 1px solid var(--border-strong);
   border-radius: 3px;
-  padding: 8px 10px 10px;
-  margin-bottom: 18px;
-  background: var(--bg-soft);
+  padding: 10px 12px 12px;
+  margin-bottom: 22px;
+  background: var(--bg-sunken);
 }
 .board-title {
   color: var(--accent);
-  border-bottom: 1px solid var(--accent-soft);
+  border-bottom: 1px solid var(--border-strong);
 }
 .board-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 14px;
+  margin-top: 10px;
 }
 .board-section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 .board-label {
   font-family: var(--font-mono);
   font-size: 9px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
 .board-label.warn {
-  color: var(--testimony);
+  color: var(--contradiction);
 }
 .board-row {
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--ink-dim);
   display: flex;
-  gap: 8px;
+  gap: 9px;
   align-items: baseline;
 }
 .board-row .dot {
@@ -435,7 +618,9 @@ body::before {
   color: var(--ink);
 }
 .board-row.contra {
-  color: var(--testimony);
+  color: var(--contradiction);
+  border-left: 2px double var(--contradiction);
+  padding-left: 8px;
 }
 .board-row.mixed .board-fact,
 .board-row.mixed .board-text {
@@ -443,7 +628,7 @@ body::before {
 }
 .board-row.ok .board-fact,
 .board-row.ok .board-text {
-  color: var(--canon);
+  color: var(--canonical);
 }
 .board-row.thin .board-fact,
 .board-row.thin .board-text {
@@ -472,76 +657,212 @@ body::before {
 }
 .board-agg {
   color: var(--accent);
-  font-weight: 400;
-}
-.board-timelines {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-  margin-top: 3px;
 }
 
-/* Travel journal bar */
-.travel-bar {
-  grid-area: travel;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border-soft);
-  border-top: 1px solid var(--border-soft);
+/* continue button — anchored, deliberate */
+.continue-btn {
+  margin-top: 14px;
+  background: transparent;
+  border: 1px solid var(--canonical);
+  color: var(--canonical);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 10px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background var(--motion) var(--ease), color var(--motion) var(--ease);
 }
+.continue-btn:hover {
+  background: var(--canonical);
+  color: #1a1409;
+}
+.continue-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ============================== TRAVEL CHIPS ============================== */
 .chip {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 3px 9px;
-  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
   border-radius: 3px;
   color: var(--ink-dim);
-  background: var(--bg-soft);
+  background: var(--bg-sunken);
   user-select: none;
+  cursor: pointer;
+  transition: border-color var(--motion) var(--ease), color var(--motion) var(--ease);
 }
 .chip:hover {
   border-color: var(--accent-soft);
   color: var(--ink);
 }
 .chip-active {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--canonical);
+  color: var(--canonical);
 }
 .chip-locked {
   text-decoration: line-through;
   opacity: 0.4;
+  cursor: not-allowed;
 }
 .chip-return {
   border-color: var(--chris);
   color: var(--chris);
 }
 .chip-free {
-  border-color: var(--canon);
-  color: var(--canon);
+  border-color: var(--canonical);
+  color: var(--canonical);
   margin-left: auto;
 }
 
-/* mobile */
-@media (max-width: 880px) {
+/* ============================== TOAST ==================================== */
+.toast {
+  position: fixed;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-soft);
+  border: 1px solid var(--border-strong);
+  border-left: 2px solid var(--accent);
+  color: var(--ink);
+  padding: 9px 18px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: var(--font-serif);
+  z-index: 10;
+}
+
+/* ============================ RESPONSIVE =================================
+   Mobile is a first-class layout, not hidden information.
+   Rails collapse into a translucent lower drawer that the player can open,
+   and the narrative stays the primary surface at every width.
+   ========================================================================= */
+.tabbar {
+  display: none;
+}
+
+@media (max-width: 900px) {
   .app {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       "header"
+      "travel"
       "center"
       "input";
+    border-left: none;
+    border-right: none;
+    height: 100dvh;
   }
+  .header {
+    padding: 14px 16px 12px;
+  }
+  .header h1 {
+    font-size: 20px;
+    letter-spacing: 0.28em;
+  }
+  .center {
+    padding: 22px 18px 26px;
+  }
+  .line .body {
+    font-size: 17px;
+  }
+  .travel-bar {
+    padding: 8px 16px;
+    overflow-x: auto;
+  }
+
+  /* rails become a bottom drawer, toggled by a tab bar */
   .panel-left,
   .panel-right {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 56px; /* above the tab bar */
+    top: auto;
+    max-height: 62dvh;
+    overflow-y: auto;
+    border: none;
+    border-top: 1px solid var(--border-strong);
+    background: var(--bg-panel);
+    transform: translateY(100%);
+    transition: transform var(--motion) var(--ease);
+    z-index: 8;
+  }
+  .panel-left.open,
+  .panel-right.open {
+    transform: translateY(0);
+  }
+  .panel-left {
+    border-right: none;
+  }
+  .panel-right {
+    border-left: none;
+  }
+
+  .tabbar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--bg-soft);
+    border-top: 1px solid var(--border-strong);
+    z-index: 9;
+  }
+  .tabbar button {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .tabbar button.active {
+    color: var(--accent);
+    border-top: 2px solid var(--accent);
+  }
+  .inputbar {
+    padding-bottom: 72px; /* clear the tab bar */
+  }
+  .toast {
+    bottom: 70px;
+  }
+}
+
+@media (max-width: 560px) {
+  .header .save {
     display: none;
   }
   .center {
-    padding: 18px 16px;
+    padding: 18px 14px 22px;
+  }
+  .line .body {
+    font-size: 16px;
+  }
+}
+
+/* ========================= REDUCED MOTION ================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .panel-left,
+  .panel-right {
+    transition: none !important;
   }
 }

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, voice_file: voice, speed }),
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(45_000),
     });
     if (!gen.ok) return NextResponse.json({ error: "tts generate failed" }, { status: 502 });
     const data = (await gen.json()) as { file_id?: string };
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const audio = await fetch(`${VOX_BASE}/api/audio/${fileId}`, {
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(30_000),
     });
     if (!audio.ok) return NextResponse.json({ error: "audio fetch failed" }, { status: 502 });
     const buf = await audio.arrayBuffer();

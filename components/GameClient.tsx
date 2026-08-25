@@ -1,70 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type {
-  WorldState,
-  NarrationLine,
-  Evidence,
-  FactStatus,
-} from "@/lib/core/types";
+import type { WorldState, NarrationLine, Evidence } from "../lib/core/types";
 import {
   TravelJournal,
   createJournal,
   captureLive,
   markComplete,
-  canTravelTo,
-  isFreeTravel,
   restore,
   allSnapshotStates,
-} from "@/lib/core/travel";
-
-interface EpisodeMeta {
-  id: string;
-  title: string;
-  subtitle: string;
-  index: number;
-}
-interface TurnResponse {
-  state: string;
-  narration: NarrationLine[];
-  ok: boolean;
-  reason?: string;
-  discoveredEvidence: Evidence[];
-  establishedFacts: string[];
-  episodeComplete?: boolean;
-  endingId?: string;
-  hasNextEpisode?: boolean;
-  nextEpisodeId?: string | null;
-  episode?: EpisodeMeta;
-  character?: { chrisTrust?: number };
-}
-
-/** Per-line spoken-audio state, keyed by the line's index in `log`. */
-interface TtsLine {
-  status: "loading" | "ready" | "playing" | "error";
-  url?: string;
-}
-
-/** Shape returned by /api/investigation — the player's consistency board. */
-interface InvestigationPayload {
-  episodeId: string;
-  timelines?: string[];
-  established: string[];
-  discovered: string[];
-  corroboration: { factId: string; status?: FactStatus; verdict: string; supporters: number; contradictors: number; timelines?: string[] }[];
-  visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
-  openLeads: { factId: string; label: string; degree: number }[];
-}
+} from "../lib/core/travel";
+import type { EpisodeMeta } from "./episode-meta";
+import type { InvestigationPayload } from "./investigation-payload";
+import type { TtsLine } from "./tts-types";
+import {
+  GameHeader,
+  TravelBar,
+  WorldPanel,
+  NarrativeLog,
+  EvidencePanel,
+  CommandInput,
+  Toast,
+  TabBar,
+} from "./GameShell";
 
 const SAVE_KEY = "chris-game-save-v2";
-
-/** Stable episode ordering for the travel chips (id, index, title). */
-const EPISODE_ORDER: { id: string; index: number; title: string }[] = [
-  { id: "ep1", index: 1, title: "THE NIGHT THE FEED STARTED" },
-  { id: "ep2", index: 2, title: "THE FEED" },
-  { id: "ep3", index: 3, title: "THE TOLL" },
-  { id: "ep4", index: 4, title: "THE ACT" },
-];
 
 const EPISODE_INTROS: Record<string, NarrationLine[]> = {
   ep1: [
@@ -101,17 +61,6 @@ const EPISODE_INTROS: Record<string, NarrationLine[]> = {
   ],
 };
 
-function statusClass(s?: FactStatus): string {
-  if (s === "testimony" || s === "rumor") return "status-testimony";
-  if (s === "canonical") return "status-canonical";
-  if (s === "observation") return "status-observation";
-  return "status-unknown";
-}
-function statusLabel(s?: FactStatus): string {
-  if (!s) return "";
-  return s.toUpperCase();
-}
-
 export function GameClient() {
   const [state, setState] = useState<WorldState | null>(null);
   const [log, setLog] = useState<NarrationLine[]>([]);
@@ -126,6 +75,7 @@ export function GameClient() {
   const [journal, setJournal] = useState<TravelJournal>(createJournal());
   const [viewingLive, setViewingLive] = useState(true);
   const [voiceOn, setVoiceOn] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"world" | "board" | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -254,23 +204,29 @@ export function GameClient() {
     );
   }
 
-  // Voices whose lines are read aloud. The reconstruction (chris/feed) is the
-  // primary voice; named contacts (mother) and evidence readings also speak.
-  const SPOKEN_SPEAKERS = new Set(["chris", "feed", "reconstruction", "mother", "evidence"]);
-  const isSpokenSpeaker = (s: string) => SPOKEN_SPEAKERS.has(s);
-
   // Single-flight lock so the local vox TTS server never receives two
   // concurrent /api/tts calls (it's a single worker; a burst was crashing it).
   const ttsLock: { chain: Promise<unknown> } = { chain: Promise.resolve() };
   function ttsRequest(text: string): Promise<{ ok: boolean; blob?: Blob }> {
     const run = async () => {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice: "chris.wav", speed: 1.0 }),
-      });
-      if (!res.ok) return { ok: false as const };
-      return { ok: true as const, blob: await res.blob() };
+      // Fail fast: if vox is down or wedged (single-worker waitress + global
+      // infer lock), we must not let the <audio> spinner hang for the proxy's
+      // full 120s server timeout. 40s bounds the perceptible "voice stuck" case
+      // and lets the single-flight chain advance to the next line.
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 40_000);
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice: "chris.wav", speed: 1.0 }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return { ok: false as const };
+        return { ok: true as const, blob: await res.blob() };
+      } finally {
+        clearTimeout(timer);
+      }
     };
     const p = ttsLock.chain.then(run, run);
     // Keep the chain alive even if one request rejects.
@@ -537,277 +493,64 @@ export function GameClient() {
   const meta = epMeta;
   return (
     <main className="app">
-      <header className="header">
-        <div>
-          <h1>CHRIS</h1>
-          <div className="sub">
-            {meta ? `episode ${roman(meta.index)} · ${meta.title.toLowerCase()}` : "a literary survival mystery"}
-          </div>
-        </div>
-        <div className="save">
-          {ws ? `Day ${ws.time.day} · ${fmtTime(ws.time)}` : ""}
-          <br />
-          <a onClick={toggleVoice} style={{ cursor: "pointer" }} className={voiceOn ? "voice-on" : ""}>
-            [{voiceOn ? "🔊 voice on" : "🔈 voice off"}]
-          </a>
-          {" · "}
-          <a onClick={startNew} style={{ cursor: "pointer" }}>
-            [new game]
-          </a>
-          {" · "}
-          <a onClick={() => { setBoardOpen(true); if (state) void refreshBoard(state); }} style={{ cursor: "pointer" }}>
-            [board]
-          </a>
-        </div>
-      </header>
+      <GameHeader
+        meta={meta}
+        ws={ws}
+        voiceOn={voiceOn}
+        onToggleVoice={toggleVoice}
+        onNewGame={startNew}
+        onOpenBoard={() => {
+          setBoardOpen(true);
+          if (state) void refreshBoard(state);
+        }}
+      />
 
-      {/* Travel journal: chips for every episode reached. Completed episodes
-          are always revisit-able; after ep4 the whole timeline is free travel.
-          While viewing a replay, a "return to live" chip appears. */}
-      {Object.keys(journal.snapshots).length > 0 && (
-        <nav className="travel-bar">
-          {Object.values(EPISODE_ORDER).map((ep) => {
-            const snap = journal.snapshots[ep.id];
-            if (!snap) return null;
-            const reachable = canTravelTo(journal, ep.id);
-            const active = ws?.episodeId === ep.id;
-            return (
-              <a
-                key={ep.id}
-                className={`chip ${active ? "chip-active" : ""} ${!reachable ? "chip-locked" : ""}`}
-                onClick={() => reachable && travelTo(ep.id)}
-                style={{ cursor: reachable ? "pointer" : "not-allowed", opacity: reachable ? 1 : 0.4 }}
-                title={reachable ? `Travel to ${ep.title}` : "Complete this episode first"}
-              >
-                {roman(ep.index)}·{ep.title}
-              </a>
-            );
-          })}
-          {!viewingLive && (
-            <a className="chip chip-return" onClick={returnToLive} style={{ cursor: "pointer" }}>
-              ↩ return to live
-            </a>
-          )}
-          {isFreeTravel(journal) && <span className="chip chip-free">FREE TRAVEL</span>}
-        </nav>
-      )}
+      <TravelBar
+        journal={journal}
+        ws={ws}
+        viewingLive={viewingLive}
+        onTravel={travelTo}
+        onReturnToLive={returnToLive}
+      />
 
-      <aside className="panel-left">
-        <div className="section-title">World</div>
-        {ws && (
-          <>
-            <div className="world-line">
-              <span className="k">EPISODE</span>
-              <span className="v">{meta ? `${roman(meta.index)} · ${meta.title}` : ws.episodeId}</span>
-            </div>
-            <div className="world-line">
-              <span className="k">LOCATION</span>
-              <span className="v">{prettyLoc(ws.location)}</span>
-            </div>
-            <div className="world-line">
-              <span className="k">HEALTH</span>
-              <span className="v">{ws.player.health}</span>
-            </div>
-            <div className="world-line">
-              <span className="k">STAMINA</span>
-              <span className="v">{ws.player.stamina}</span>
-            </div>
-            <div className="world-line">
-              <span className="k">TRUST·CHRIS</span>
-              <span className="v">{ws.characterStates.chris?.trust ?? "—"}</span>
-            </div>
-            <div className="world-line">
-              <span className="k">SOCIAL</span>
-              <span className="v">{ws.player.socialTrust}</span>
-            </div>
-          </>
-        )}
-        <div className="section-title">Quests</div>
-        {ws &&
-          Object.values(ws.quests).map((q) => (
-            <div className="world-line" key={q.id}>
-              <span className="v" style={{ fontSize: 13 }}>
-                {q.status === "done" ? "✓ " : "• "}
-                {q.title}
-              </span>
-            </div>
-          ))}
-      </aside>
+      <WorldPanel ws={ws} meta={meta} mobileTab={mobileTab} />
 
-      <section className="center">
-        <div className="narrative" ref={scrollRef} onScroll={onScroll}>
-          {log.map((l, i) => (
-            <div className={`line ${l.speaker}`} key={i}>
-              {l.speaker !== "player" && l.speaker !== "system" && (
-                <span className="who">
-                  {l.speaker}
-                  {l.status && <span className={`status-tag ${statusClass(l.status)}`}>{statusLabel(l.status)}</span>}
-                </span>
-              )}
-              {l.speaker === "system" && <span className="who system">»</span>}
-              <div className="body">{l.text}</div>
-              {isSpokenSpeaker(l.speaker) && l.text.trim() && (
-                <span className="tts-row">
-                  {tts[i]?.status === "loading" && <span className="tts-spin" title="Generating speech…" aria-label="generating" />}
-                  {tts[i]?.status === "error" && <span className="tts-err" title="Speech unavailable">⚠</span>}
-                  {(tts[i]?.url || !tts[i] || tts[i]?.status === "error") && tts[i]?.status !== "loading" && (
-                    tts[i]?.status === "playing" ? (
-                      <button className="tts-btn" onClick={() => stopLine(i)} title="Stop">⏸</button>
-                    ) : (
-                      <button className="tts-btn" onClick={() => playLine(i)} title="Play">▶</button>
-                    )
-                  )}
-                </span>
-              )}
-            </div>
-          ))}
-          {ws?.episodeComplete && (
-            <div className="line narrator">
-              <span className="who">— {meta ? `end of episode ${roman(meta.index)}` : "end of episode"} —</span>
-              <div className="body">
-                {ws.endingId}
-                {ws.endingId && " · "}
-                <em>Who do you trust?</em>
-              </div>
-              {ws && epMeta?.id !== "ep4" && (
-                <button className="continue-btn" onClick={advanceEpisode} disabled={busy}>
-                  Continue to the next episode →
-                </button>
-              )}
-              {epMeta?.id === "ep4" && (
-                <div className="body" style={{ marginTop: 8 }}>
-                  This is the end of the road. Chris is gone. The reconstruction remains. You know which is which.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
+      <NarrativeLog
+        log={log}
+        tts={tts}
+        ws={ws}
+        meta={meta}
+        busy={busy}
+        onPlay={playLine}
+        onStop={stopLine}
+        onAdvance={advanceEpisode}
+        scrollRef={scrollRef}
+        onScroll={onScroll}
+      />
 
-      <aside className="panel-right">
-        {boardOpen && (
-          <div className="board-wrap">
-            <div className="section-title board-title">
-              Consistency Board
-              {board?.timelines && board.timelines.length > 1 && (
-                <span className="board-agg"> · across {board.timelines.length} timelines</span>
-              )}
-              {board?.timelines && board.timelines.length > 1 && (
-                <div className="board-timelines">{board.timelines.map((t) => t.toUpperCase()).join("  ·  ")}</div>
-              )}
-              <a onClick={() => setBoardOpen(false)} style={{ cursor: "pointer", float: "right", fontSize: 11 }}>[close]</a>
-            </div>
-            {!board ? (
-              <div className="empty">No data yet.</div>
-            ) : (
-              <div className="board-body">
-                {board.openLeads?.length > 0 && (
-                  <div className="board-section">
-                    <div className="board-label">OPEN LEADS ({board.openLeads.length})</div>
-                    {board.openLeads.map((l) => (
-                      <div key={l.factId} className="board-row lead">
-                        <span className="dot" />
-                        <span className="board-text">{l.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {board.visibleContradictions?.length > 0 && (
-                  <div className="board-section">
-                    <div className="board-label warn">CONTRADICTIONS ({board.visibleContradictions.length})</div>
-                    {board.visibleContradictions.map((c) => (
-                      <div key={c.factId + (c.report ?? "")} className="board-row contra">
-                        <span className="board-text">{c.report}</span>
-                        {c.claimLabels?.length > 0 && (
-                          <div className="board-sub">{c.claimLabels.join("  ·  ")}</div>
-                        )}
-                        {c.timelines && c.timelines.length > 1 && (
-                          <div className="board-sub dim">seen in: {c.timelines.map((t) => t.toUpperCase()).join(" · ")}</div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="board-section">
-                  <div className="board-label">CORROBORATION ({board.corroboration.length})</div>
-                  {board.corroboration.map((c) => (
-                    <div key={c.factId} className={`board-row ${c.contradictors > 0 ? "mixed" : c.supporters > 1 ? "ok" : "thin"}`}>
-                      <span className="board-fact">{c.factId}</span>
-                      <span className="board-text">
-                        {c.verdict}
-                        {(c.supporters > 0 || c.contradictors > 0) && (
-                          <span className="board-counts">{"  "}({c.supporters}✓ / {c.contradictors}✗)</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        <div className="section-title">Evidence</div>
-        {evidence.length === 0 && <div className="empty">Nothing recovered yet. Search the room.</div>}
-        {evidence.map((e) => (
-          <div className="ev-item" key={e.id}>
-            <div className="t">{e.title}</div>
-            <div className="c">{e.content}</div>
-            <span className={`tag ${e.status === "canonical" ? "canon" : e.status === "observation" ? "test" : "unk"}`}>
-              {e.kind}
-            </span>
-          </div>
-        ))}
+      <EvidencePanel
+        boardOpen={boardOpen}
+        board={board}
+        onCloseBoard={() => setBoardOpen(false)}
+        evidence={evidence}
+        established={established}
+        ws={ws}
+        commandHints={commandHints(ws)}
+        onPickCommand={(c) => setInput(c)}
+        mobileTab={mobileTab}
+      />
 
-        <div className="section-title">Established Facts</div>
-        {established.length === 0 && <div className="empty">No facts established yet.</div>}
-        {established.map((f, i) => (
-          <div className="fact-item" key={i}>
-            <span className="t">{f}</span>
-            <span className="tag canon">canon</span>
-          </div>
-        ))}
+      <CommandInput
+        input={input}
+        busy={busy}
+        onChange={setInput}
+        onSend={send}
+        onKey={onKey}
+        inputRef={inputRef}
+      />
 
-        <div className="section-title">Commands</div>
-        {commandHints(ws).map((c) => (
-          <div className="help-row" key={c} style={{ cursor: "pointer" }} onClick={() => setInput(c)}>
-            {c}
-          </div>
-        ))}
-      </aside>
-
-      <div className="inputbar">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKey}
-          placeholder={busy ? "…" : "What do you do?"}
-          aria-label="command input"
-        />
-        <button onClick={send} disabled={busy || !input.trim()}>
-          {busy ? "…" : "SAY"}
-        </button>
-      </div>
-
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 78,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "var(--bg-soft)",
-            border: "1px solid var(--border)",
-            color: "var(--ink)",
-            padding: "8px 16px",
-            borderRadius: 3,
-            fontSize: 13,
-            zIndex: 10,
-          }}
-        >
-          {toast}
-        </div>
-      )}
+      <Toast toast={toast} />
+      <TabBar active={mobileTab} onTab={(t) => setMobileTab((cur) => (cur === t ? null : t))} />
     </main>
   );
 }
@@ -830,15 +573,20 @@ function commandHints(ws: WorldState | null): string[] {
   return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the post", "confront the feed", "search the room", "sleep"];
 }
 
-function roman(n: number): string {
-  return ["0", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][n] ?? String(n);
-}
+// Re-imported here (kept local to avoid a circular concern); identical to source.
+import { isSpokenSpeaker } from "./GameShell";
 
-function fmtTime(t: { day: number; hour: number; minute: number }): string {
-  const h = ((t.hour + 11) % 12) + 1;
-  const ampm = t.hour < 12 ? "AM" : "PM";
-  return `${h}:${t.minute.toString().padStart(2, "0")} ${ampm}`;
-}
-function prettyLoc(loc: string): string {
-  return loc.replace(/_/g, " ");
+interface TurnResponse {
+  state: string;
+  narration: NarrationLine[];
+  ok: boolean;
+  reason?: string;
+  discoveredEvidence: Evidence[];
+  establishedFacts: string[];
+  episodeComplete?: boolean;
+  endingId?: string;
+  hasNextEpisode?: boolean;
+  nextEpisodeId?: string | null;
+  episode?: EpisodeMeta;
+  character?: { chrisTrust?: number };
 }
