@@ -70,9 +70,12 @@ export async function POST(req: NextRequest) {
     const text = result.text?.trim();
     if (!text) return NextResponse.json({ error: "empty narration" }, { status: 503 });
     return NextResponse.json({ text, provider: result.provider, simulated: result.simulated });
-  } catch {
-    // Model down / unreachable → fail closed. Client falls back.
-    return NextResponse.json({ error: "narration unavailable" }, { status: 503 });
+  } catch (e) {
+    // Model down / unreachable / rejected → fail closed. Client falls back.
+    // Surface the upstream reason (never the key) so a misconfigured provider
+    // is debuggable instead of a silent 503.
+    const reason = (e instanceof Error ? e.message : String(e)).slice(0, 400);
+    return NextResponse.json({ error: "narration unavailable", reason }, { status: 503 });
   }
 }
 
@@ -80,10 +83,13 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   const hasLocal = !!(process.env.CHRIS_LLAMACPP_URL || process.env.CHRIS_OLLAMA_URL);
   const hasHosted = !!(process.env.CHRIS_HOSTED_URL && process.env.CHRIS_HOSTED_KEY);
+  const hostedModel = process.env.CHRIS_HOSTED_MODEL ?? "gpt-4o-mini";
   return NextResponse.json({
     localOnly: true,
     endpoints: ["/api/narrate"],
     narrationSource: hasHosted ? "hosted" : hasLocal ? "local" : "none",
+    hostedUrl: hasHosted ? process.env.CHRIS_HOSTED_URL : null,
+    hostedModel: hasHosted ? hostedModel : null,
     spendCaps: spendCaps(),
   });
 }
