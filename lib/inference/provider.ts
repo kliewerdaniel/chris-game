@@ -197,27 +197,45 @@ export class HostedProvider implements InferenceProvider {
     if (!this.baseUrl || !apiKey) {
       throw new NoLocalInferenceError("Hosted provider not configured (missing CHRIS_HOSTED_URL/KEY).");
     }
+    const body: Record<string, unknown> = {
+      model: req.model ?? this.defaultModel,
+      messages: req.messages,
+      temperature: req.temperature ?? 0.7,
+      max_tokens: req.maxTokens ?? 400,
+      stream: false,
+    };
+    // ADR-011: forward tools for structured (intent) output. The OpenAI-compatible
+    // shape is identical to our ChatTool type, so pass them through verbatim.
+    if (req.tools && req.tools.length) {
+      (body as Record<string, unknown>).tools = req.tools;
+      (body as Record<string, unknown>).tool_choice = req.toolChoice ?? "auto";
+    }
     const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: req.model ?? this.defaultModel,
-        messages: req.messages,
-        temperature: req.temperature ?? 0.7,
-        max_tokens: req.maxTokens ?? 400,
-        stream: false,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`hosted chat failed: ${res.status} ${await res.text().catch(() => "")}`);
     const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: { message?: { content?: string; tool_calls?: any[] } }[];
     };
-    const text = data.choices?.[0]?.message?.content?.trim() ?? "";
-    return { text, provider: this.name, simulated: false };
+    const msg = data.choices?.[0]?.message;
+    const text = msg?.content?.trim() ?? "";
+    const tcs = msg?.tool_calls;
+    const toolCalls = Array.isArray(tcs)
+      ? tcs.map((t: any) => ({
+          name: t?.function?.name ?? "",
+          arguments:
+            typeof t?.function?.arguments === "string"
+              ? t.function.arguments
+              : JSON.stringify(t?.function?.arguments ?? {}),
+        }))
+      : undefined;
+    return { text, provider: this.name, simulated: false, toolCalls };
   }
 }
 

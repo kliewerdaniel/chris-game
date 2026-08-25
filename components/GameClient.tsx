@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { WorldState, NarrationLine, Evidence } from "../lib/core/types";
+import type { WorldState, NarrationLine, Evidence, GameAction } from "../lib/core/types";
 import {
   TravelJournal,
   createJournal,
@@ -15,6 +15,7 @@ import type { InvestigationPayload } from "./investigation-payload";
 import type { TtsLine } from "./tts-types";
 import { createClientEngine, EPISODES } from "../lib/engine/game-engine";
 import { buildInvestigationPayload } from "../lib/core/investigation";
+import { parseAction, isConfident } from "../lib/inference/intent";
 import {
   GameHeader,
   TravelBar,
@@ -103,6 +104,55 @@ export function GameClient() {
   // thing it delegates — to the HostedNarrateBackend (POST /api/narrate) when
   // NEXT_PUBLIC_NARRATION is not "off", else to the deterministic fallback.
   const engineRef = useRef(createClientEngine());
+
+  // ADR-011: free-chat with the reconstruction of a dead friend is the most
+  // ethically loaded surface in the game. Show a ONE-TIME disclosure before the
+  // first free-chat turn and remember the acknowledgment in localStorage.
+  const [chatDisclosure, setChatDisclosure] = useState(false);
+  const chatAckRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      chatAckRef.current = localStorage.getItem("chris-chat-disclosure") === "1";
+    } catch {
+      chatAckRef.current = false;
+    }
+  }, []);
+  const acknowledgeChat = useCallback(() => {
+    chatAckRef.current = true;
+    setChatDisclosure(false);
+    try {
+      localStorage.setItem("chris-chat-disclosure", "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // ADR-011: rules-first NLP. Try the deterministic parser; if it isn't
+  // confident, ask the serverless /api/intent (hosted model, tool-calling) for
+  // a closed-schema GameAction; on any failure fall back to the rule parser's
+  // chat coercion. The engine always re-validates the returned action.
+  const resolveAction = useCallback(async (raw: string): Promise<GameAction> => {
+    const rule = parseAction(raw);
+    if (isConfident(rule)) return rule;
+    // Ambiguous → try hosted intent resolver.
+    try {
+      const res = await fetch("/api/intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raw }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { action: GameAction | null };
+        if (data.action && typeof data.action.type === "string") {
+          return data.action;
+        }
+      }
+    } catch {
+      /* network/timeout → fall through to rules */
+    }
+    return rule; // engine coerces to chat if still unconfident
+  }, []);
 
   // Keep the command box focused so the player can keep typing after a turn
   // resolves without re-clicking. (We deliberately do NOT disable the input on
@@ -468,12 +518,23 @@ export function GameClient() {
     setBusy(true);
     setInput("");
 
+    // ADR-011: first free-form turn → one-time disclosure. We still record the
+    // player line, but pause processing until they acknowledge (or have before).
+    if (!chatAckRef.current && !chatDisclosure) {
+      setChatDisclosure(true);
+      setBusy(false);
+      return;
+    }
+
     const playerLine: NarrationLine = { speaker: "player", text: `> ${text}` };
     const currentLog = [...log, playerLine];
     setLog(currentLog);
 
     try {
-      const { state: ws, result } = await engineRef.current.processTurn(state, text);
+      // Rules-first NLP (ADR-011): deterministic parse, else hosted /api/intent,
+      // else rule chat-coercion. Engine re-validates the returned action.
+      const action = await resolveAction(text);
+      const { state: ws, result } = await engineRef.current.processTurnWithAction(state, action);
       setState(ws);
       const ep = EPISODES[ws.episodeId];
       const meta: EpisodeMeta = { id: ep.id, title: ep.title, subtitle: ep.subtitle, index: ep.index };
@@ -594,6 +655,25 @@ export function GameClient() {
                 }}
               >
                 [new game]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {chatDisclosure && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true">
+          <div className="confirm-box chat-disclosure">
+            <h3>This is a reconstruction.</h3>
+            <p>
+              When you talk to Chris here, you are talking to an AI model voiced in
+              his style — built from what he wrote. It is <strong>not Chris</strong>,
+              and it cannot be. It will reflect him, joke like him, and sometimes
+              lie or withhold the way the story demands. Don&apos;t mistake it for him.
+            </p>
+            <div className="confirm-actions">
+              <button type="button" className="asbtn confirm-danger" onClick={acknowledgeChat}>
+                [I understand — let me talk to him]
               </button>
             </div>
           </div>

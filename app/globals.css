@@ -923,4 +923,24 @@ button:disabled {
 .confirm-danger {
   color: var(--contradiction);
 }
+/* ADR-011: free-chat with the reconstruction — one-time ethical disclosure. */
+.chat-disclosure {
+  max-width: 420px;
+  border-color: var(--accent);
+}
+.chat-disclosure h3 {
+  margin: 0 0 12px;
+  font-family: var(--serif);
+  font-size: 19px;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
+.chat-disclosure p {
+  margin: 0 0 18px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.chat-disclosure .confirm-actions {
+  justify-content: flex-end;
+}
 

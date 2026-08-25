@@ -141,3 +141,38 @@ describe("GameEngine — LLM parse opt-in (CHRIS_USE_LLM_PARSE)", () => {
     process.env.CHRIS_USE_LLM_PARSE = prev!;
   });
 });
+
+// ── ADR-011: public-path intent resolver contract ─────────────────────────────
+// These assert the shape that the new serverless /api/intent depends on, after
+// HostedProvider was fixed to forward tool_calls (it dropped them before).
+describe("llm intent resolver — ADR-011 public contract", () => {
+  it("rule pass wins over the model's target id ('examine the post' -> note)", async () => {
+    const inference = new InferenceManager([
+      new MockProvider(undefined, () => [
+        { name: "resolve_player_action", arguments: JSON.stringify({ verb: "examine", targetId: "post", raw: "examine the post" }) },
+      ]),
+    ]);
+    const action = await resolveIntentWithLLM("examine the post", inference, {
+      verbs: ALLOWED.verbs,
+      targetIds: [...ALLOWED.targetIds, ...RESOLVABLE_TARGET_IDS],
+      topicIds: ALLOWED.topicIds,
+    });
+    expect(action).not.toBeNull();
+    expect(action!.type).toBe("examine");
+    // Deterministic rule resolution maps "post" -> canonical `note` topic target.
+    expect(action!.targetId).toBe("note");
+    expect(action!.raw).toBe("examine the post");
+  });
+
+  it("returns null when the model emits no tool call (client falls back to rules)", async () => {
+    const inference = new InferenceManager([
+      new MockProvider((req) => `Sure! ${req.messages[1]?.content}`),
+    ]);
+    const action = await resolveIntentWithLLM("hello chris", inference, {
+      verbs: ALLOWED.verbs,
+      targetIds: ALLOWED.targetIds,
+      topicIds: ALLOWED.topicIds,
+    });
+    expect(action).toBeNull();
+  });
+});

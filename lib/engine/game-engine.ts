@@ -175,6 +175,60 @@ export class GameEngine {
     return { state: next, result, action };
   }
 
+  /**
+   * ADR-011: process a turn from an ALREADY-RESOLVED action. The public client
+   * path routes ambiguous input to a serverless intent resolver; the returned
+   * GameAction is applied here through the SAME deterministic pipeline
+   * (validate → dispatch → voice → narration). The action is never trusted to
+   * mutate state — ep.dispatch gating + the rule fallback below stay authoritative.
+   */
+  async processTurnWithAction(
+    state: WorldState,
+    action: GameAction
+  ): Promise<{ state: WorldState; result: ActionResult; action: GameAction }> {
+    const ep = this.getEpisode(state);
+
+    // Universal chat coercion for unconfident/empty actions (ADR-006).
+    if (!isConfident(action)) {
+      action = { ...action, type: "chat", targetId: undefined, topicId: undefined };
+    }
+
+    const ctx: EpisodeContext = { engine: this.engineApi(), ce: this.ce };
+    const handler = ep.dispatch(action, ctx);
+
+    if (!handler) {
+      if (action.type !== "chat") {
+        action = { ...action, type: "chat", targetId: undefined, topicId: undefined };
+      }
+    }
+
+    const resolvedHandler = handler ?? ((s: WorldState, a: GameAction) => doChat(s, a));
+    let { state: next, result } = await resolvedHandler(state, action, ctx);
+
+    if (!result.ok) {
+      const chatAction: GameAction = { ...action, type: "chat", targetId: undefined, topicId: undefined };
+      const chatResolved = doChat(next, chatAction);
+      next = chatResolved.state;
+      result = chatResolved.result;
+    }
+
+    const worldStep = applyWorldEvents(next);
+    next = worldStep.state;
+
+    if (result.ok) {
+      const characterTurn = ["talk", "ask", "confront", "chat", "call"].includes(action.type);
+      const worldReaction = ["look", "examine", "move", "use", "search", "read"].includes(action.type);
+      const needsVoice = characterTurn || worldReaction || result.narration.length === 0;
+      if (needsVoice) {
+        const { lines, state: voiced } = await this.generateNarration(next, action, result);
+        next = voiced;
+        result = { ...result, narration: lines };
+      }
+    }
+
+    return { state: next, result, action };
+  }
+
   private engineApi() {
     return {
       buildNarration: async (
