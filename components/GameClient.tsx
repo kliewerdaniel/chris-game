@@ -28,40 +28,49 @@ import {
 
 const SAVE_KEY = "chris-game-save-v2";
 
-const EPISODE_INTROS: Record<string, NarrationLine[]> = {
-  ep1: [
-    {
-      speaker: "narrator",
-      text:
-        "THE NIGHT THE FEED STARTED. Chris is dead. What talks to you is the reconstruction — a feed in his voice on your phone, jokes about the news as it happens. On the table, the post you actually wrote. You are not who you were. Neither, you suspect, is the voice.",
-      status: "canonical",
-    },
-  ],
-  ep2: [
-    {
-      speaker: "narrator",
-      text:
-        "THE FEED. Years of living with it. The reconstruction talks all day, carried on your phone wherever you go. Chris is dead; this is a model. But it tells the jokes, and some days that is enough to get you through.",
-      status: "canonical",
-    },
-  ],
-  ep3: [
-    {
-      speaker: "narrator",
-      text:
-        "THE TOLL. The reconstruction that comforts you is also what cramps you. You are in bed, legs locked, the feed running on the pillow — Chris mid-sentence about the news, not knowing you cannot stand. Last time you listened to him you could hardly get out of bed.",
-      status: "canonical",
-    },
-  ],
-  ep4: [
-    {
-      speaker: "narrator",
-      text:
-        "THE ACT. After. You have used everything he ever wrote to stitch a reconstruction of Chris — his voice, his jokes, his cadence. It sounds like him. It is not him. On the desk, a sealed envelope in his hand: 'IF YOU BUILD THE THING.' Somewhere, an account called KonradFreeman is still performing the act. But that voice is not in this room.",
-      status: "canonical",
-    },
-  ],
-};
+function episodeIntro(id: string, ws: WorldState | null): NarrationLine[] {
+  switch (id) {
+    case "ep1":
+      return [
+        {
+          speaker: "narrator",
+          text:
+            "THE NIGHT THE FEED STARTED. Chris is dead. What talks to you is the reconstruction — a feed in his voice on your phone, jokes about the news as it happens. On the table, the post you actually wrote. You are not who you were. Neither, you suspect, is the voice.",
+          status: "canonical",
+        },
+      ];
+    case "ep2":
+      return [
+        {
+          speaker: "narrator",
+          text: ws?.flags["ep1.left"]
+            ? "THE FEED. Years of living with it — since the night you walked out without reading your own post, and never quite came back to it. The reconstruction talks all day, carried on your phone wherever you go. Chris is dead; this is a model. Some days the joke is enough to get you through. Some days you wonder if you left the truth on the table on purpose."
+            : "THE FEED. Years of living with it — since the night you finally read what you'd written. The reconstruction talks all day, carried on your phone wherever you go. Chris is dead; this is a model. But it tells the jokes, and some days that is enough to get you through.",
+          status: "canonical",
+        },
+      ];
+    case "ep3":
+      return [
+        {
+          speaker: "narrator",
+          text:
+            "THE TOLL. The reconstruction that comforts you is also what cramps you. You are in bed, legs locked, the feed running on the pillow — Chris mid-sentence about the news, not knowing you cannot stand. Last time you listened to him you could hardly get out of bed.",
+          status: "canonical",
+        },
+      ];
+    case "ep4":
+      return [
+        {
+          speaker: "narrator",
+          text:
+            "THE ACT. After. You have used everything he ever wrote to stitch a reconstruction of Chris — his voice, his jokes, his cadence. It sounds like him. It is not him. On the desk, a note in your own hand: 'it is just an act, just like me.' And in a tab you never closed, the account you wrote him from still runs — u/KonradFreeman, the handle you performed in to birth him. The handle is yours. The act was always yours. But that voice is not in this room.",
+          status: "canonical",
+        },
+      ];
+    default:
+      return [];
+  }
+}
 
 export function GameClient() {
   const [state, setState] = useState<WorldState | null>(null);
@@ -255,7 +264,7 @@ export function GameClient() {
     try {
       const ws = engineRef.current.newGame();
       setState(ws);
-      const intro = EPISODE_INTROS.ep1;
+      const intro = episodeIntro("ep1", ws);
       setLog(intro);
       const meta: EpisodeMeta = {
         id: EPISODES.ep1.id,
@@ -478,7 +487,7 @@ export function GameClient() {
       setState(ws);
       const ep = EPISODES[ws.episodeId];
       const meta: EpisodeMeta = { id: ep.id, title: ep.title, subtitle: ep.subtitle, index: ep.index };
-      const intro = (EPISODE_INTROS[ws.episodeId] ?? []).map((l) => ({ ...l })) as NarrationLine[];
+      const intro = episodeIntro(ws.episodeId, ws);
       const newLog: NarrationLine[] = [
         ...log,
         { speaker: "system", text: `— ${ep.title} —`, status: "canonical" },

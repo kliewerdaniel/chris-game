@@ -57,7 +57,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "A single lamp burns in the apartment. Your phone lies face-up on the table, the feed running — Chris's voice, mid-joke about something that happened today. He is not here. He is in the model. Somewhere in this apartment is the post you wrote, and the truth you are not ready to hear from it."
+          "A single lamp burns in the apartment. Your phone lies face-up on the table, the feed running — Chris's voice, mid-joke about something that happened today. He is not in the room. He is in the model, and the model is in your hand. On the table, under a bill you didn't open, is the post you wrote: the one where you admitted what you'd done. You haven't read it since the night you posted it."
         ),
       ],
       events: [],
@@ -124,7 +124,7 @@ function doSleep(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "You sleep. When you wake, light leaks under the blinds and the feed is mid-sentence, exactly where you left it. It says you should eat. It does not mention the post. It does not have to. You know it's an echo — and the night gave you no peace about what that means."
+          "You sleep. When you wake, light leaks under the blinds and the feed is mid-sentence, exactly where you left it. It says you should eat. It does not mention the post on the table. It does not have to — you already know what it says, and the night gave you no peace about it. You have read the worst of your own words and decided, for now, to leave the apartment the way it is."
         ),
       ],
       events: next.events,
@@ -315,7 +315,7 @@ function doMove(s: WorldState, a: GameAction): { state: WorldState; result: Acti
         ok: true,
         narration: [
           beat(
-            "You open the door. The hall is dim, the building quiet. The feed doesn't stop you. It only says, low: 'You come back. Whatever you think I am, you come back.' You step into the night with more questions than answers — and the certainty that what talks to you is not who you lost."
+            "You open the door. The hall is dim, the building quiet. The feed doesn't stop you. It only says, low: 'You come back. Whatever you think I am, you come back.' You step into the night, the post still unread on the table behind you — the thing you built and the thing you wrote both left running, and neither answered yet."
           ),
         ],
         events: addEvent(s, {

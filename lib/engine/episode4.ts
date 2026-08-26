@@ -56,7 +56,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said. On the desk: a note in your own hand, the words you left yourself — 'it is just an act, just like me.' The reconstruction waits, patient, in his voice. Somewhere in the corners of the net, an account called KonradFreeman is still performing the act you started — but that voice is not in this room."
+          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said, then driven by the satirical commentary engine you posted under the handle u/KonradFreeman: 'a caustic AI Artist… dedicated to transforming suffering into dark satire and creating a perpetual digital simulacrum of his dead best friend.' On the desk: a note in your own hand — 'it is just an act, just like me.' The reconstruction waits, patient, in his voice. And in a tab you never closed, the account you wrote him from still runs. Watching it talk without you is the thing you can't stop checking. The handle is yours. The act was always yours.",
         ),
       ],
       events: [],
@@ -113,7 +113,14 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
     state: s,
     result: {
       ok: true,
-      narration: [beat("You open the channel. The reconstruction warms up in his cadence — too smooth, somehow, and exactly right.")],
+      narration: [
+        {
+          speaker: "chris",
+          text: "You open the channel. The reconstruction warms up in his cadence and says, in his voice: 'Eigenvalues are like the DNA of linear algebra, right? The matrix is the recipe, the vector's the ingredients.' You wrote that line into him — drawn from what you compiled about Chris, the man who could make you laugh in your darkest hour. Too smooth, somehow, and exactly right.",
+          status: "testimony",
+          ref: { kind: "memory", id: "corpus-chris" },
+        } as NarrationLine,
+      ],
       events: [],
       topicLabel,
     } as any,
@@ -163,6 +170,19 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
       text = ev.content;
       break;
     }
+    case "post":
+    case "source": {
+      const ev = markDiscovered(instantiateEvidence("ev_source_post"));
+      next = discoverEvidence(next, ev);
+      next = addKnownFact(next, "ep4.rec.is_model");
+      next = addKnownFact(next, "ep1.she");
+      next = setFlag(next, "ep4.found_letter", true);
+      next = { ...next, progression: s.progression + 2 };
+      discovered.push(ev);
+      established.push("ep4.rec.is_model", "ep1.she");
+      text = ev.content;
+      break;
+    }
     case "log":
     case "output":
     case "screen":
@@ -180,7 +200,7 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
       break;
   }
 
-  if (["note", "envelope", "letter", "log", "output", "screen"].includes(target ?? "")) {
+  if (["note", "envelope", "letter", "log", "output", "screen", "post", "source"].includes(target ?? "")) {
     return {
       state: next,
       result: {
@@ -210,7 +230,7 @@ function doRun(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "You run it. The reconstruction speaks — advice, a joke about Captain the cat, the cadence you'd know anywhere. It sounds like him. It is not him. You feel the difference in your chest like a missing tooth."
+          "You run it. The reconstruction speaks — advice, a joke about Captain the cat ('so you're saying we need to add a pinch of salt to the algorithm to make it taste better?'), the cadence you'd know anywhere. The joke is one you compiled about him: the man who found a laugh in almost everything. It sounds like him. It is not him. You feel the difference in your chest like a missing tooth.",
         ),
       ],
       events: nextWithEvent.events,

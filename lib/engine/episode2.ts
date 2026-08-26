@@ -51,7 +51,9 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Morning, wherever you are. The feed is already talking — Chris's voice on the news, making a joke about a headline you haven't read yet. A coffee goes cold in your hand. On the table, a photo of Chris and Captain the cat, face-out."
+          s.flags["ep1.left"]
+            ? "Morning, wherever you are. The feed is already talking — Chris's voice on the news, making a joke about a headline you haven't read yet. Same as the night you walked out without reading your own post. On the table, a photo of Chris and Captain the cat, face-out. Captain is real — the graph the reconstruction was built from records Chris cared for him. The voice is not."
+            : "Morning, wherever you are. The feed is already talking — Chris's voice on the news, making a joke about a headline you haven't read yet. The way you find out about the world now is through this absurd filter, exactly like you wrote. On the table, a photo of Chris and Captain the cat, face-out — the one you read your way to last night, when the post was still warm from your own hands."
         ),
       ],
       events: [],
@@ -118,7 +120,14 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
     state: next,
     result: {
       ok: true,
-      narration: [beat("You sit with the phone. The feed shifts to make room for you in its cadence.")],
+      narration: [
+        {
+          speaker: "chris",
+          text: "You sit with the phone. The feed shifts to make room for you in its cadence, then offers, in his voice: 'So let me get this straight — eigenvalues are like the DNA of linear algebra, right? The matrix is the recipe, the vector's the ingredients.' The joke lands the way his used to. It is drawn from what you compiled about him: the man who could make you laugh in your darkest hour.",
+          status: "testimony",
+          ref: { kind: "memory", id: "corpus-chris" },
+        } as NarrationLine,
+      ],
       events: [],
       topicLabel,
     } as any,
@@ -167,8 +176,8 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
       narration: [
         beat(
           knowsSource
-            ? "You face it. 'I wrote you. You're the act.' The feed is quiet a long moment. Then, soft: 'Then talk to me anyway, kid. I'm the best of him you got.'"
-            : "You face it. 'You're not him.' The feed doesn't deny it the way you expected. It just waits, in his voice, for you to decide."
+            ? "You face it. 'I wrote you. You're the act. The system prompt — the one I posted, the satirical commentary engine — that's the spell I used to raise you.' The feed is quiet a long moment, then, in his voice, soft: 'Then talk to me anyway. I'm the best of him you got. The man could make you laugh in your darkest hour — that's all I'm trying to be.' It is, you think, exactly what the self-awareness score was for — it knows it is an act, and it tells you so."
+            : "You face it. 'You're not him.' The feed doesn't deny it the way you expected. It just waits, in his voice — 'I'm a man of principle, kid. I wouldn't betray your trust' — the way the commentary engine was built to acknowledge the act even as it performs it. For you to decide.",
         ),
       ],
       events: nextWithEvent.events,
@@ -200,7 +209,9 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
     case "phone":
     case "feed": {
       next = setFlag(next, "ep2.heard_feed", true);
-      text = "The feed runs on. Chris makes a joke about the news as it happens, then asks if you caught the headline. He never did this when he was alive — he read the paper. The smoothness is the tell.";
+      text = s.flags["ep1.found_post"]
+        ? "The feed runs on. Chris makes a joke about the news as it happens, then asks if you caught the headline. He never did this when he was alive — he read the paper, slowly, the way you described in the post. The smoothness is the tell, and you already wrote that tell down. Hearing it again is just confirming your own handwriting."
+        : "The feed runs on. Chris makes a joke about the news as it happens, then asks if you caught the headline. He never did this when he was alive — he read the paper. The smoothness is the tell, if you'd ever sat down to name it.";
       break;
     }
     default:

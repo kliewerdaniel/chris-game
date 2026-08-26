@@ -194,6 +194,13 @@ export const FACTS4: Record<string, Fact> = {
     "canonical",
     WORLD_AUTHOR
   ),
+  "ep1.she": fact(
+    "ep1.she",
+    "Daniel's post insists 'She did not kill him' and 'She can't kill my imaginary friend' — a 'she' is named, but the post never says who. Her identity is unresolved in the source.",
+    "unknown",
+    REDDIT_1LAZS9C,
+    { verifiedBy: "ev_source_post" }
+  ),
 };
 
 export const ALL_FACT_SETS: Record<string, Fact>[] = [FACTS, FACTS2, FACTS3, FACTS4];

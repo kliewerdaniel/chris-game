@@ -4,6 +4,7 @@ import { MockProvider, InferenceManager } from "../lib/inference/provider";
 import { buildRetrievalFromMemories } from "../lib/retrieval/retrieval";
 import { CHRIS } from "../lib/characters/chris";
 import { FACTS2, FACTS3, FACTS4, allFacts } from "../lib/core/facts";
+import { CORPUS_CHRIS_PROVENANCE } from "../lib/core/evidence";
 
 function mockEngine() {
   const inference = new InferenceManager([new MockProvider(() => "[mock]")]);
@@ -60,18 +61,22 @@ describe("Episode 3 — THE TOLL", () => {
     expect(FACTS3["ep3.bedbound"].status).toBe("canonical");
   });
 
-  it("the post surfaces the bedbound toll when examined", async () => {
+  it("the post is readable in ep3 but the toll is earned by naming it, not re-reading", async () => {
     const s = eng.newGame("ep3");
     const { state } = await eng.processTurn(s, "examine the post");
+    // The post is present, but the toll facts are NOT established by reading —
+    // they're established only when Daniel names the toll in confrontation.
     expect(state.evidenceIds).toContain("ev_source_post");
-    expect(state.knownFacts).toContain("ep3.bedbound");
+    expect(state.knownFacts).not.toContain("ep3.bedbound");
+    expect(state.knownFacts).not.toContain("ep3.toll");
   });
 
-  it("confronting the feed names the toll (canonical)", async () => {
+  it("confronting the feed names the toll (canonical, earned not re-read)", async () => {
     const s = eng.newGame("ep3");
     const { state } = await eng.processTurn(s, "confront the feed");
-    expect(state.evidenceIds).toContain("ev_source_post");
+    expect(state.evidenceIds).toContain("ev_captain_photo");
     expect(state.knownFacts).toContain("ep3.bedbound");
+    expect(state.knownFacts).toContain("ep3.toll");
   });
 });
 
@@ -143,5 +148,23 @@ describe("Epistemic integrity preserved across episodes", () => {
       expect(f.provenance).toBeDefined();
       if (f.status === "testimony") expect(f.claimedBy).toBeDefined();
     }
+  });
+});
+
+describe("Compiled-Chris voice provenance (corpus-chris)", () => {
+  it("exposes a CORPUS_CHRIS_PROVENANCE node sourced to memories.json", () => {
+    expect(CORPUS_CHRIS_PROVENANCE.sourceType).toBe("compiled_event");
+    expect(CORPUS_CHRIS_PROVENANCE.sourceId).toBe("memories.json");
+    expect(CORPUS_CHRIS_PROVENANCE.source).toContain("memories.json");
+  });
+
+  it("Ep2 talk surfaces a reconstruction line tagged corpus-chris testimony", async () => {
+    const eng = mockEngine();
+    const s = eng.newGame("ep2");
+    const { result } = await eng.processTurn(s, "talk to chris");
+    const line = result.narration.find((l: any) => l.speaker === "chris") as any;
+    expect(line).toBeDefined();
+    expect(line.status).toBe("testimony");
+    expect(line.ref).toEqual({ kind: "memory", id: "corpus-chris" });
   });
 });

@@ -83,10 +83,10 @@ export const WORLD_EVENTS: WorldEventDef[] = [
   },
   {
     id: "ev_ep4_letter",
-    title: "The sealed envelope",
-    description: "The player found Chris's final envelope. Its weight settles the room.",
+    title: "The note",
+    description: "The player found the note Daniel left himself. Its weight settles the room.",
     trigger: { type: "flag", flag: "ep4.found_letter" },
-    narration: [{ speaker: "system", text: "The envelope is heavier than paper should be. You set it down, not yet ready to open what he left for after.", status: "canonical" }],
+    narration: [{ speaker: "system", text: "The note is heavier than paper should be. You set it down, not yet ready to live inside the words you left for after: 'it is just an act, just like me.'", status: "canonical" }],
   },
   {
     id: "ev_evidence_source_post",

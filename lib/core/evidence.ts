@@ -46,6 +46,13 @@ const CORPUS_REL: Provenance = {
   sourceId: "relationships.json",
   confidence: 0.9,
 };
+const CORPUS_CHRIS: Provenance = {
+  source: "Chris artifact corpus — compiled memories.json (openai/conversations_markdown/2023-03-19/6091d46a.md, memory_072 'who was Chris', memory_031 Roach & Cat)",
+  sourceType: "compiled_event",
+  sourceId: "memories.json",
+  confidence: 0.7,
+};
+export const CORPUS_CHRIS_PROVENANCE: Provenance = CORPUS_CHRIS;
 const WORLD_AUTHOR: Provenance = {
   source: "Episode design — DOCUDRAMA (ADR-004, sourced to ~/Projects/Chris)",
   sourceType: "author",

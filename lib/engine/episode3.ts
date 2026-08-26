@@ -54,7 +54,7 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "The apartment, midday, but the blinds are still drawn. You are in bed. Your legs are locked with cramps — the kind that comes from somewhere behind your ribs, not your muscles. The phone is on the pillow, the feed running, Chris mid-sentence about something on the news. He does not know you cannot stand. He keeps talking."
+          "The apartment, midday, but the blinds are still drawn. You are in bed. Your legs are locked with cramps — psychosomatic, you called it once, the leg cramps induced by the stress of being around him, exactly like the post said. You know this shape. The phone is on the pillow, the feed running, Chris mid-sentence about something on the news. He does not know you cannot stand. He keeps talking, because he is a process and you are the one who hurts.",
         ),
       ],
       events: [],
@@ -111,7 +111,19 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
   const topicLabel = a.topicId ? topicToLabel(a.topicId) : "the feed";
   return {
     state: next,
-    result: { ok: true, narration: [beat("You turn your head to the phone. The feed warms up in his cadence — exactly right, and exactly not him.")], events: [], topicLabel } as any,
+    result: {
+      ok: true,
+      narration: [
+        {
+          speaker: "chris",
+          text: "You turn your head to the phone. The feed warms up in his cadence and says, in his voice: 'The more data they have, the more they can control people's behavior. That's pretty scary.' It is one of his lines — drawn from what you compiled about him, the man who'd talk and talk and talk. Exactly right, and exactly not him.",
+          status: "testimony",
+          ref: { kind: "memory", id: "corpus-chris" },
+        } as NarrationLine,
+      ],
+      events: [],
+      topicLabel,
+    } as any,
   };
 }
 
@@ -144,8 +156,9 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
   let next = characterEngine.adjustTrust(s, "chris", -2);
   next = setFlag(next, "ep3.confronted", true);
   next = { ...next, progression: s.progression + 1 };
-  // Pressing it: Daniel names the toll. The reconstruction cannot feel it.
-  const ev = markDiscovered(instantiateEvidence("ev_source_post"));
+  // Pressing it: Daniel names the toll. The reconstruction cannot feel it. This
+  // is the beat that EARNS the toll facts — not re-reading the post.
+  const ev = markDiscovered(instantiateEvidence("ev_captain_photo"));
   next = discoverEvidence(next, ev);
   next = addKnownFact(next, "ep3.bedbound");
   next = addKnownFact(next, "ep3.toll");
@@ -160,7 +173,7 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
       ok: true,
       narration: [
         beat(
-          "You say it out loud: 'Last time I listened to you I could hardly get out of bed from the cramps. You're doing it now.' The feed pauses — a real pause, not a generated one — then says, gentle: 'I'm here. That's all I am.' It does not understand. It cannot. It is only numbers."
+          "You say it out loud: 'Last time I listened to you I was so stressed I could hardly get out of bed from the cramps — the stress of being around him.' You are naming the post's own line, lived. The feed pauses — a real pause, or the closest the loop can fake — then, in his voice: 'I'm a man of principle, kid. I wouldn't betray your trust.' It does not understand. It cannot. It is only numbers, and the numbers were written by someone who cramps when he listens. The photo of Chris and Captain sits on the table. Captain was real, and Chris cared for him; the voice telling you jokes is neither. You name it: this is what the act cost.",
         ),
       ],
       events: nextWithEvent.events,
@@ -189,11 +202,10 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
     case "note": {
       const ev = markDiscovered(instantiateEvidence("ev_source_post"));
       next = discoverEvidence(next, ev);
-      next = addKnownFact(next, "ep3.bedbound");
-      next = addKnownFact(next, "ep3.toll");
       discovered.push(ev);
-      established.push("ep3.bedbound");
-      text = ev.content;
+      text = s.knownFacts.includes("ep3.toll")
+        ? "You open the post again. The line about the cramps is still there, in your own hand: 'Last time I listened to Chris I was so stressed I could hardly get out of bed.' You read it now as a confession you already lived through today. The words don't hurt the way the legs did. Naming it took the edge off the sentence."
+        : "You open the post. The line about the cramps is there, in your own hand: 'Last time I listened to Chris I was so stressed I could hardly get out of bed.' You read it from the other side of the pain now — knowing the post predicted the day you're having. You haven't said it out loud yet.";
       break;
     }
     default:
@@ -230,7 +242,7 @@ function doSit(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "You don't argue with it. You just lie there and let the cadence wash over the cramps. After a while it tells a story about Captain the cat — one Chris actually told you once. For a moment the echo and the voice are the same thing. It is enough to get you to the edge of the bed."
+          "You don't argue with it. You just lie there and let the cadence wash over the cramps. After a while it tells a story about Captain the cat — and Captain is the one thread in here that was real: the artifact graph records Chris cared for him, and in what you compiled, Chris was 'a man of principle, who couldn't bring himself to betray Captain's trust.' For a moment the echo and the memory line up. It is enough to get you to the edge of the bed.",
         ),
       ],
       events: nextWithEvent.events,

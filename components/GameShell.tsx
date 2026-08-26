@@ -11,6 +11,7 @@
 
 import type { WorldState, NarrationLine, Evidence, FactStatus, DisclosureMode } from "../lib/core/types";
 import { getFact } from "../lib/core/facts";
+import { CORPUS_CHRIS_PROVENANCE } from "../lib/core/evidence";
 import type { TravelJournal } from "../lib/core/travel";
 import { canTravelTo, isFreeTravel } from "../lib/core/travel";
 import type { EpisodeMeta } from "./episode-meta";
@@ -193,7 +194,13 @@ export function NarrationLineView(props: {
         </span>
       )}
       {line.speaker === "system" && <span className="who system">»</span>}
-      <div className="body">{line.text}</div>
+      <div className={"body"}>{line.text}</div>
+      {line.ref?.kind === "memory" && line.ref.id === "corpus-chris" && (
+        <div className="src-tag">
+          <span className="src-label">what Daniel compiled about Chris · </span>
+          <span className="src-detail">{CORPUS_CHRIS_PROVENANCE.source}</span>
+        </div>
+      )}
       {cue && <span className="cue">{cue}</span>}
       {isSpokenSpeaker(line.speaker) && line.text.trim() && (
         <span className="tts-row">
