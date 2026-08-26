@@ -813,6 +813,28 @@ button:disabled { cursor: not-allowed; }
   overflow: hidden;
   background: #0a0a0c;
 }
+.recon-mode-toggle {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+}
+.recon-mode-toggle .asbtn {
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(12, 12, 14, 0.6);
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.recon-mode-toggle .asbtn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 .recon-loading {
   padding: var(--sp-3);
   font-size: 12px;

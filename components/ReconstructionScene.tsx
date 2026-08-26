@@ -5,9 +5,12 @@ import { Canvas, useFrame, type ThreeElements } from "@react-three/fiber";
 import { OrbitControls, Text } from "@react-three/drei";
 import { buildReconstructionState } from "../lib/reconstruction/state";
 import { buildRoomState } from "../lib/reconstruction/room";
+import { buildGraphLayout } from "../lib/reconstruction/graph";
 import RoomEnvironment from "./RoomEnvironment";
+import GraphConstellation from "./GraphConstellation";
 import type { ReconstructionState, ReconFragment, Vec3 } from "../lib/reconstruction/state";
 import type { RoomState } from "../lib/reconstruction/room";
+import type { GraphState, GraphNode } from "../lib/reconstruction/graph";
 import type { WorldState } from "../lib/core/types";
 
 /** Read prefers-reduced-motion (SSR-safe). */
@@ -135,14 +138,31 @@ function FragmentMesh({ f, selected, onSelect, home, reducedMotion }: { f: Recon
   );
 }
 
-function Scene({ ws, selected, onSelect, reducedMotion }: { ws: WorldState; selected: ReconFragment | null; onSelect: (f: ReconFragment | null) => void; reducedMotion: boolean }) {
+function Scene({ ws, selected, onSelect, reducedMotion, mode, graphSelected, onGraphSelect }: { ws: WorldState; selected: ReconFragment | null; onSelect: (f: ReconFragment | null) => void; reducedMotion: boolean; mode: "room" | "graph"; graphSelected: GraphNode | null; onGraphSelect: (n: GraphNode | null) => void }) {
   const recon: ReconstructionState = useMemo(() => buildReconstructionState(ws), [ws]);
   const room: RoomState = useMemo(() => {
     const statuses: Record<string, string> = {};
     for (const f of recon.fragments) statuses[f.id] = f.status;
     return buildRoomState(ws, statuses);
   }, [ws, recon]);
+  const graph: GraphState = useMemo(() => buildGraphLayout(ws), [ws]);
   const frags = recon.fragments;
+
+  // Graph mode renders the constellation instead of the room frame + drifting
+  // fragments. Node selection flows through `onGraphSelect` and surfaces the
+  // same epistemic detail panel as the room fragments (default mode is "room"
+  // so the existing center-click e2e stays green).
+  if (mode === "graph") {
+    return (
+      <GraphConstellation
+        graph={graph}
+        selected={graphSelected}
+        onSelect={onGraphSelect}
+        reducedMotion={reducedMotion}
+      />
+    );
+  }
+
   return (
     <>
       {/* M3 — the room environment frames the reconstruction (asset-agnostic placeholder). */}
@@ -177,6 +197,8 @@ function Scene({ ws, selected, onSelect, reducedMotion }: { ws: WorldState; sele
 
 export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: WorldState | null; onChallengeClaim?: (factId: string) => void }) {
   const [selected, setSelected] = useState<ReconFragment | null>(null);
+  const [graphSelected, setGraphSelected] = useState<GraphNode | null>(null);
+  const [mode, setMode] = useState<"room" | "graph">("room");
   const reducedMotion = usePrefersReducedMotion();
   // DOM safety net (§9 floor): the room's spatial relations are also expressed
   // as text so the scene is never a hard WebGL wall. Not the primary view, but
@@ -188,16 +210,35 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
     for (const f of recon.fragments) statuses[f.id] = f.status;
     return buildRoomState(ws, statuses);
   }, [ws]);
+  const graph = useMemo(() => (ws ? buildGraphLayout(ws) : null), [ws]);
   if (!ws) return null;
   return (
     <div className="recon-scene" aria-label="reconstruction visual">
+      <div className="recon-mode-toggle" role="group" aria-label="reconstruction view mode">
+        <button
+          type="button"
+          className={`asbtn${mode === "room" ? " active" : ""}`}
+          aria-pressed={mode === "room"}
+          onClick={() => setMode("room")}
+        >
+          the room
+        </button>
+        <button
+          type="button"
+          className={`asbtn${mode === "graph" ? " active" : ""}`}
+          aria-pressed={mode === "graph"}
+          onClick={() => setMode("graph")}
+        >
+          the web
+        </button>
+      </div>
       <Canvas camera={{ position: [0, 0, 2.4], fov: 50 }} dpr={[1, 2]}>
         {/* <Text> suspends while its font loads; without an in-canvas Suspense
             boundary the whole R3F tree suspends and renders nothing (the canvas
             goes blank but no error is thrown). Wrap so the scene always commits. */}
         <Suspense fallback={null}>
           <color attach="background" args={["#0a0a0c"]} />
-          <Scene ws={ws} selected={selected} onSelect={setSelected} reducedMotion={reducedMotion} />
+          <Scene ws={ws} selected={selected} onSelect={setSelected} reducedMotion={reducedMotion} mode={mode} graphSelected={graphSelected} onGraphSelect={setGraphSelected} />
         </Suspense>
       </Canvas>
       <div className="recon-legend">
@@ -207,9 +248,13 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
       </div>
       {/* §9 DOM safety net — spatial relations as text (sr-only; visible if WebGL unavailable) */}
       <div className="recon-spatial-sr" aria-label="reconstruction layout description">
-        <p>Spatial reconstruction of Chris, framed by the room. The lamp marks the center; its light reads {room?.tone ?? "settled"}.</p>
+        {mode === "graph" ? (
+          <p>Spatial reconstruction of Chris as a web of claims. {graph?.nodes.length ?? 0} nodes, {graph?.tensions.length ?? 0} tensions. Every relation is a model, not a verdict.</p>
+        ) : (
+          <p>Spatial reconstruction of Chris, framed by the room. The lamp marks the center; its light reads {room?.tone ?? "settled"}.</p>
+        )}
         <ul>
-          {(room?.anchors ?? []).map((a) => (
+          {(mode === "graph" ? (graph?.nodes ?? []).slice(0, 8) : (room?.anchors ?? [])).map((a: any) => (
             <li key={a.id}>{a.label}</li>
           ))}
         </ul>
@@ -241,6 +286,24 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
               challenge this fragment
             </button>
           )}
+        </div>
+      )}
+      {!selected && graphSelected && (
+        <div className="recon-detail" role="note" aria-label="selected graph node">
+          <button
+            type="button"
+            className="recon-detail-close"
+            aria-label="close"
+            onClick={() => setGraphSelected(null)}
+          >
+            ×
+          </button>
+          <div className="recon-detail-kind">
+            {graphSelected.authored ? "your hypothesis" : graphSelected.kind}
+            {graphSelected.status ? ` · ${graphSelected.status}` : ""}
+          </div>
+          <div className="recon-detail-text">{graphSelected.label}</div>
+          <div className="recon-detail-meta">a node in the reconstruction web — a model, not a verdict.</div>
         </div>
       )}
     </div>
