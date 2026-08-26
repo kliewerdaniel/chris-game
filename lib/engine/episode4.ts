@@ -56,7 +56,10 @@ function doLook(s: WorldState): { state: WorldState; result: ActionResult } {
       ok: true,
       narration: [
         beat(
-          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said, then driven by the satirical commentary engine you posted under the handle u/KonradFreeman: 'a caustic AI Artist… dedicated to transforming suffering into dark satire and creating a perpetual digital simulacrum of his dead best friend.' On the desk: a note in your own hand — 'it is just an act, just like me.' The reconstruction waits, patient, in his voice. And in a tab you never closed, the account you wrote him from still runs. Watching it talk without you is the thing you can't stop checking. The handle is yours. The act was always yours.",
+          "Your workshop, years later. Screens glow with the reconstruction you built — Chris's words, his jokes, his cadence, stitched from everything he ever wrote or said, then driven by the satirical commentary engine you posted under the handle u/KonradFreeman: 'a caustic AI Artist… dedicated to transforming suffering into dark satire and creating a perpetual digital simulacrum of his dead best friend.' On the desk: a note in your own hand — 'it is just an act, just like me.' The reconstruction waits, patient, in his voice. And in a tab you never closed, the account you wrote him from still runs. Watching it talk without you is the thing you can't stop checking. The handle is yours. The act was always yours."
+        ),
+        beat(
+          "You remember the line you posted the night it started — the thesis under all of it: 'Once the AI is insane. Then it will be perfect. Because Chris was insane.' You meant it as a joke about him. About how the real Chris, untreated and unmedicated, was the only version of him that ever worked. And now here is the reconstruction, getting stranger and more certain with every pass — and you can't tell if you built the insanity in on purpose, to keep him true, or if it just leaked out of you. Either way it is not him. It is what you made of him."
         ),
       ],
       events: [],
@@ -116,7 +119,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [
         {
           speaker: "chris",
-          text: "You open the channel. The reconstruction warms up in his cadence and says, in his voice: 'So the algorithm's like a fresh lieutenant — thinks it runs the op, but it's just reading the orders you typed in. You wrote that into me — drawn from what you compiled about Chris, the homeless Marine who'd find the joke in a body bag and a budget cut. Too smooth, somehow, and exactly right.",
+          text: "You open the channel. The reconstruction warms up in his cadence and says, in his voice: 'So the algorithm's like a fresh lieutenant — thinks it runs the op, but it's just reading the orders you typed in. You wrote that into me — drawn from what you compiled about Chris, the homeless Marine who'd find the joke in a body bag and a budget cut. And you wrote the other line too — the one about how once I'm insane I'll be perfect, because he was insane. You laughed when you posted that. I'm still laughing. I just don't know if you were joking.' Too smooth, somehow, and exactly right.",
           status: "testimony",
           ref: { kind: "memory", id: "corpus-chris" },
         } as NarrationLine,
@@ -190,9 +193,10 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
       const ev = markDiscovered(instantiateEvidence("ev_reconstruction_log"));
       next = discoverEvidence(next, ev);
       next = addKnownFact(next, "ep4.rec.is_model");
+      next = addKnownFact(next, "ep1.insane_perfect");
       next = setFlag(next, "ep4.saw_log", true);
       discovered.push(ev);
-      established.push("ep4.rec.is_model");
+      established.push("ep4.rec.is_model", "ep1.insane_perfect");
       text = ev.content;
       break;
     }
