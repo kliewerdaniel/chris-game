@@ -576,28 +576,18 @@ export function GameClient() {
     refocusInput();
   }
 
-  async function send() {
-    const text = input.trim();
-    if (!text || busy || !state) return;
-    setBusy(true);
-    setInput("");
-
-    // ADR-011: first free-form turn → one-time disclosure. We still record the
-    // player line, but pause processing until they acknowledge (or have before).
-    if (!chatAckRef.current && !chatDisclosure) {
-      setChatDisclosure(true);
-      setBusy(false);
-      return;
-    }
-
-    const playerLine: NarrationLine = { speaker: "player", text: `> ${text}` };
-    const currentLog = [...log, playerLine];
+  /**
+   * ADR-014 §5.2 — single engine turn path, shared by the text box and by
+   * claim-driven actions (challenge). Runs the deterministic pipeline and
+   * commits the result into live state / log / board the same way `send` does.
+   */
+  async function runTurn(action: GameAction, playerText?: string) {
+    if (!state) return;
+    const currentLog = playerText
+      ? [...log, { speaker: "player" as const, text: playerText }]
+      : log;
     setLog(currentLog);
-
     try {
-      // Rules-first NLP (ADR-011): deterministic parse, else hosted /api/intent,
-      // else rule chat-coercion. Engine re-validates the returned action.
-      const action = await resolveAction(text);
       const { state: ws, result } = await engineRef.current.processTurnWithAction(state, action);
       setState(ws);
       const ep = EPISODES[ws.episodeId];
@@ -615,18 +605,61 @@ export function GameClient() {
         setEstablished((f) => [...f, ...result.establishedFacts!]);
       }
 
-      // Capture the live frontier after every turn; mark the episode complete
-      // if this turn closed it (unlocks free travel on ep4.closed).
       const ev = result.discoveredEvidence?.length ? [...evidence, ...result.discoveredEvidence] : evidence;
       let jr = journal;
       if (ws.episodeComplete) jr = markComplete(jr, ws, ws.endingId);
       jr = captureLive(jr, ws);
       setJournal(jr);
       save(ws, newLog, ev, established, meta, jr);
-      // Refresh the consistency board against the new state (best-effort).
       if (boardOpen) void refreshBoard(ws);
     } catch (e) {
       setToast("The connection faltered. Your progress is safe.");
+    }
+  }
+
+  async function send() {
+    const text = input.trim();
+    if (!text || busy || !state) return;
+    setBusy(true);
+    setInput("");
+
+    // ADR-011: first free-form turn → one-time disclosure. We still record the
+    // player line, but pause processing until they acknowledge (or have before).
+    if (!chatAckRef.current && !chatDisclosure) {
+      setChatDisclosure(true);
+      setBusy(false);
+      return;
+    }
+
+    try {
+      // Rules-first NLP (ADR-011): deterministic parse, else hosted /api/intent,
+      // else rule chat-coercion. Engine re-validates the returned action.
+      const action = await resolveAction(text);
+      await runTurn(action, `> ${text}`);
+    } finally {
+      setBusy(false);
+      refocusInput();
+    }
+  }
+
+  /**
+   * ADR-014 §5.2 — player skepticism drives the engine. A clicked claim (Board
+   * divergence / evidence / reconstruction fragment) issues a deterministic
+   * `challenge` action carrying the factId as targetId, routed straight through
+   * the engine (no LLM). doChallenge records `challenge.<factId>` to the ledger
+   * and the Board refreshes against the new state.
+   */
+  async function challengeClaim(factId: string) {
+    if (busy || !state) return;
+    setBusy(true);
+    try {
+      const action: GameAction = {
+        type: "challenge",
+        targetId: factId,
+        intent: { verb: "challenge", target: factId },
+        raw: `challenge ${factId}`,
+      };
+      await runTurn(action, `> you challenge: ${factId}`);
     } finally {
       setBusy(false);
       refocusInput();
@@ -664,7 +697,7 @@ export function GameClient() {
       </button>
 
       {sceneOpen && ws && (
-        <ReconstructionScene ws={ws} />
+        <ReconstructionScene ws={ws} onChallengeClaim={challengeClaim} />
       )}
 
       <TravelBar
@@ -701,6 +734,7 @@ export function GameClient() {
         helpOpen={helpOpen}
         onToggleHelp={() => setHelpOpen((v) => !v)}
         fileOpen={mobileTab === "board"}
+        onChallengeClaim={challengeClaim}
       />
 
       <CommandInput

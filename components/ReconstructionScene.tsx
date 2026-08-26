@@ -146,7 +146,7 @@ function Scene({ ws, selected, onSelect }: { ws: WorldState; selected: ReconFrag
   );
 }
 
-export default function ReconstructionScene({ ws }: { ws: WorldState | null }) {
+export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: WorldState | null; onChallengeClaim?: (factId: string) => void }) {
   const [selected, setSelected] = useState<ReconFragment | null>(null);
   if (!ws) return null;
   return (
@@ -177,6 +177,15 @@ export default function ReconstructionScene({ ws }: { ws: WorldState | null }) {
           )}
           {selected.claimedBy && (
             <div className="recon-detail-meta">claimed by: {selected.claimedBy}</div>
+          )}
+          {onChallengeClaim && (
+            <button
+              type="button"
+              className="board-challenge recon-detail-challenge"
+              onClick={() => onChallengeClaim(selected.id)}
+            >
+              challenge this fragment
+            </button>
           )}
         </div>
       )}

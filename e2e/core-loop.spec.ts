@@ -138,3 +138,33 @@ test("reconstruction detail panel shows source on fragment select", async ({ pag
   await page.locator(".recon-detail-close").click();
   await expect(page.locator(".recon-detail")).toHaveCount(0);
 });
+
+test("claim-driven challenge: clicking a claim runs the engine challenge loop", async ({ page }) => {
+  await page.goto("/");
+
+  // Recover an evidence item so the Case File has a claim to challenge.
+  const input = page.locator(".inputbar input");
+  await expect(input).toBeVisible();
+  await input.fill("examine the post");
+  await page.locator(".inputbar button").click();
+  const ack = page.locator(".chat-disclosure button");
+  if (await ack.count()) {
+    await ack.click();
+    await input.fill("examine the post");
+    await page.locator(".inputbar button").click();
+  }
+
+  // One of the evidence items is the recovered post; expand it to reveal provenance.
+  const evItem = page.locator(".ev-item").first();
+  await expect(evItem).toBeVisible({ timeout: 20_000 });
+  await evItem.click();
+  const challengeBtn = evItem.locator(".board-challenge");
+  await expect(challengeBtn).toBeVisible({ timeout: 10_000 });
+
+  const logBefore = await page.locator(".line").count();
+  await challengeBtn.click();
+  // The challenge action routes through the engine and records into the log.
+  await expect(page.locator(".line.player", { hasText: "you challenge" }).first()).toBeVisible({ timeout: 10_000 });
+  const logAfter = await page.locator(".line").count();
+  expect(logAfter).toBeGreaterThan(logBefore);
+});

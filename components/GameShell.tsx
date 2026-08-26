@@ -308,10 +308,11 @@ export function CaseFile(props: {
   helpOpen: boolean;
   onToggleHelp: () => void;
   fileOpen?: boolean;
+  onChallengeClaim?: (factId: string) => void;
 }) {
   const {
     boardOpen, board, onCloseBoard, evidence, established, ws, meta,
-    commandHints, onPickCommand, helpOpen, onToggleHelp, fileOpen,
+    commandHints, onPickCommand, helpOpen, onToggleHelp, fileOpen, onChallengeClaim,
   } = props;
   const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
   return (
@@ -355,6 +356,15 @@ export function CaseFile(props: {
                         <div className="board-sub">
                           {a.strongerSource} ⊣ {a.weakerSource} · re-read source or challenge the claim
                         </div>
+                      )}
+                      {onChallengeClaim && a.factId && (
+                        <button
+                          type="button"
+                          className="board-challenge"
+                          onClick={() => onChallengeClaim(a.factId)}
+                        >
+                          challenge the claim
+                        </button>
                       )}
                     </div>
                   ))}
@@ -463,6 +473,11 @@ export function CaseFile(props: {
                   {e.provenance.sourceId ? ` · ${e.provenance.sourceId}` : ""}
                   {typeof e.provenance.confidence === "number" ? ` · conf ${(e.provenance.confidence * 100).toFixed(0)}%` : ""}
                 </div>
+                {onChallengeClaim && (
+                  <button type="button" className="board-challenge" onClick={(ev) => { ev.stopPropagation(); onChallengeClaim(e.id); }}>
+                    challenge this claim
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -521,7 +521,24 @@ button:disabled { cursor: not-allowed; }
 .board-sub.dim { opacity: 0.8; }
 .board-agg { color: var(--accent); }
 
-/* continue button — anchored, deliberate */
+/* ADR-014 §5.2 — claim-driven challenge button (Board / evidence / recon detail) */
+.board-challenge {
+  display: inline-block;
+  margin-top: var(--sp-2);
+  padding: 3px 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.board-challenge:hover { background: var(--accent); color: var(--bg); }
+.recon-detail-challenge { margin-top: var(--sp-3); }
 .continue-btn {
   margin-top: var(--sp-4);
   background: transparent;
