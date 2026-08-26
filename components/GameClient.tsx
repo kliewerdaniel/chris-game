@@ -299,9 +299,12 @@ export function GameClient() {
     );
   }
 
-  // Single-flight lock so the local vox TTS server never receives two
-  // concurrent /api/tts calls (it's a single worker; a burst was crashing it).
-  const ttsLock: { chain: Promise<unknown> } = { chain: Promise.resolve() };
+  // Single-flight pump so the local vox TTS server (a single worker) never
+  // receives two concurrent /api/tts calls. MUST be a ref: the auto-voice
+  // effect re-fires on every `log` change, and a fresh pump per render would
+  // let those re-fires run concurrently and flood the single worker.
+  const ttsPumpRef = useRef<{ chain: Promise<unknown> }>({ chain: Promise.resolve() });
+  const ttsPump = ttsPumpRef.current;
 
   // Length guard: vox synthesizes ~20s per ~50-word chunk, serially. A line
   // longer than MAX_TTS_CHARS (≈ ~80 words) would take far longer than the
@@ -309,19 +312,20 @@ export function GameClient() {
   // "examine the post takes forever then fails, next also fails" cascade.
   // Over-long lines are skipped (text only, marked muted) instead of sent.
   const MAX_TTS_CHARS = 480;
-  function ttsRequest(text: string): Promise<{ ok: boolean; blob?: Blob }> {
-    // Fast-preempt: never hand a too-long line to vox (and never let the
-    // single-flight chain wait on it). Resolves as "ok: false" so callers
-    // mark the line muted rather than erroring.
-    if (text.length > MAX_TTS_CHARS) {
-      return Promise.resolve({ ok: false as const });
-    }
-    const run = async () => {
-      // Fail fast: if vox is down or wedged (single-worker waitress + global
-      // infer lock), we must not let the <audio> spinner hang for the proxy's
-      // full 120s server timeout. 40s bounds the perceptible "voice stuck" case
-      // and lets the single-flight chain advance to the next line.
+
+  // Synthesize one line, single-flighted through the pump so vox (single
+  // worker) is only ever asked for one line at a time. On a busy response
+  // (502/503) we retry with a short backoff, up to MAX_TTS_ATTEMPTS — this is
+  // what prevents "the next line also fails": a line that loses the single
+  // worker to a sibling simply waits its turn instead of being dropped.
+  const MAX_TTS_ATTEMPTS = 6;
+  async function synthLine(text: string): Promise<{ ok: boolean; blob?: Blob }> {
+    if (text.length > MAX_TTS_CHARS) return { ok: false as const };
+    let attempt = 0;
+    const run = async (): Promise<{ ok: boolean; blob?: Blob }> => {
       const ctrl = new AbortController();
+      // 40s bounds the perceptible "voice stuck" case and lets the pump advance
+      // to the next line; vox itself fast-fails busy well under this.
       const timer = setTimeout(() => ctrl.abort(), 40_000);
       try {
         const res = await fetch("/api/tts", {
@@ -336,9 +340,20 @@ export function GameClient() {
         clearTimeout(timer);
       }
     };
-    const p = ttsLock.chain.then(run, run);
-    // Keep the chain alive even if one request rejects.
-    ttsLock.chain = p.then(() => undefined, () => undefined);
+    // Single-flight through the pump, then bounded busy-retry.
+    const p = ttsPump.chain.then(async () => {
+      for (;;) {
+        const r = await run();
+        if (r.ok) return r;
+        if (++attempt >= MAX_TTS_ATTEMPTS) return r; // give up, mark error (not muted)
+        await new Promise((res) => setTimeout(res, 1200 * attempt));
+      }
+    }, async () => {
+      // Chain rejected (shouldn't) — still try once.
+      return run();
+    });
+    // Keep the chain alive even if one line rejects.
+    ttsPump.chain = p.then(() => undefined, () => undefined);
     return p;
   }
 
@@ -354,7 +369,7 @@ export function GameClient() {
       if (!text) return;
       setTts((prev) => ({ ...prev, [idx]: { status: "loading" } }));
       try {
-        const r = await ttsRequest(text);
+        const r = await synthLine(text);
         if (!r.ok) {
           const muted = text.length > MAX_TTS_CHARS;
           setTts((prev) => ({ ...prev, [idx]: { status: muted ? "muted" : "error" } }));
@@ -408,31 +423,44 @@ export function GameClient() {
     let cancelled = false;
     (async () => {
       for (const s of spoken) {
-        if (ttsRef.current[s.idx]?.url) continue; // already synthesized
+        // Sticky guard: any prior attempt (loading/ready/error/muted) for this
+        // line index must NOT be re-fired. Without this, every `log` change
+        // re-requests the line; under vox backpressure those re-fires slam the
+        // single-worker server, producing a 502 storm ("the next line also
+        // fails"). The per-line ▶ button still retries on demand.
+        if (ttsRef.current[s.idx]) continue;
         if (!voiceOnRef.current) continue; // generate on demand only when voice on
         const myVersion = version;
-        setTts((prev) => ({ ...prev, [s.idx]: { status: "loading" } }));
+        const attempt: TtsLine = { status: "loading" };
+        ttsRef.current[s.idx] = attempt;
+        setTts((prev) => ({ ...prev, [s.idx]: attempt }));
         try {
-          const r = await ttsRequest(s.text);
+          const r = await synthLine(s.text);
           if (cancelled || myVersion !== logVersionRef.current) return;
           if (!r.ok) {
             // Either vox is down OR the line is too long for speech (length
             // guard). Distinguish so a long line reads as "muted" (text only),
-            // not a hard error.
+            // not a hard error. Mark sticky so we don't re-fire on log change.
             const muted = s.text.length > MAX_TTS_CHARS;
-            setTts((prev) => ({ ...prev, [s.idx]: { status: muted ? "muted" : "error" } }));
+            const failed: TtsLine = { status: muted ? "muted" : "error" };
+            ttsRef.current[s.idx] = failed;
+            setTts((prev) => ({ ...prev, [s.idx]: failed }));
             continue;
           }
           const blob = r.blob!;
           const url = URL.createObjectURL(blob);
-          ttsRef.current[s.idx] = { status: "ready", url };
-          setTts((prev) => ({ ...prev, [s.idx]: { status: "ready", url } }));
+          const ready: TtsLine = { status: "ready", url };
+          ttsRef.current[s.idx] = ready;
+          setTts((prev) => ({ ...prev, [s.idx]: ready }));
           // Auto-play newest: stop whatever is currently playing.
           if (audioRef.current) audioRef.current.pause();
           playLine(s.idx);
         } catch {
-          if (!cancelled && myVersion === logVersionRef.current)
-            setTts((prev) => ({ ...prev, [s.idx]: { status: "error" } }));
+          if (!cancelled && myVersion === logVersionRef.current) {
+            const failed: TtsLine = { status: "error" };
+            ttsRef.current[s.idx] = failed;
+            setTts((prev) => ({ ...prev, [s.idx]: failed }));
+          }
         }
       }
     })();
