@@ -721,3 +721,45 @@ button:disabled { cursor: not-allowed; }
 .recon-legend .solid { color: #e8eef0; }
 .recon-legend .stitched { color: var(--accent); }
 
+.recon-detail {
+  position: relative;
+  margin: 0 var(--sp-3) var(--sp-3) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2);
+  border-left: 2px solid var(--accent);
+  background: rgba(20, 17, 12, 0.7);
+}
+.recon-detail-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--muted-foreground);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.recon-detail-kind {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.recon-detail-text {
+  font-size: 13px;
+  color: var(--foreground);
+}
+.recon-detail-quote {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-2);
+  border-left: 1px solid var(--border);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.recon-detail-meta {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}

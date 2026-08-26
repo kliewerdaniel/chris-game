@@ -49,7 +49,7 @@ function fragmentTreatment(f: ReconFragment): {
   return { solid: false, stitched: true, color: "#b98a3a" };
 }
 
-function FragmentMesh({ f, selected }: { f: ReconFragment; selected: boolean }) {
+function FragmentMesh({ f, selected, onSelect }: { f: ReconFragment; selected: boolean; onSelect: (f: ReconFragment | null) => void }) {
   const ref = useRef<any>(null);
   const { solid, stitched, color } = fragmentTreatment(f);
   // Deterministic jitter from the fragment seed (no randomness at placement).
@@ -85,16 +85,30 @@ function FragmentMesh({ f, selected }: { f: ReconFragment; selected: boolean }) 
 
   return (
     <group position={[f.region.x + jitter.x, f.region.y + jitter.y, f.region.z + jitter.z]}>
-      <mesh ref={ref} castShadow>
+      <mesh
+        ref={ref}
+        castShadow
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(selected ? null : f);
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "auto";
+        }}
+      >
         {geometry === "icosahedron" ? (
           <icosahedronGeometry args={args as [number, number]} />
         ) : (
           <boxGeometry args={args as [number, number, number]} />
         )}
         <meshStandardMaterial
-          color={color}
+          color={selected ? "#f2f6f8" : color}
           emissive={stitched ? "#5a3d12" : "#101418"}
-          emissiveIntensity={stitched ? 0.6 : 0.15}
+          emissiveIntensity={selected ? 0.9 : stitched ? 0.6 : 0.15}
           transparent
           opacity={Math.max(0.22, f.opacity)}
           roughness={solid ? 0.4 : 0.9}
@@ -106,7 +120,7 @@ function FragmentMesh({ f, selected }: { f: ReconFragment; selected: boolean }) 
   );
 }
 
-function Scene({ ws, onSelect }: { ws: WorldState; onSelect: (f: ReconFragment | null) => void }) {
+function Scene({ ws, selected, onSelect }: { ws: WorldState; selected: ReconFragment | null; onSelect: (f: ReconFragment | null) => void }) {
   const recon: ReconstructionState = useMemo(() => buildReconstructionState(ws), [ws]);
   const frags = recon.fragments;
   return (
@@ -115,7 +129,7 @@ function Scene({ ws, onSelect }: { ws: WorldState; onSelect: (f: ReconFragment |
       <pointLight position={[2, 3, 4]} intensity={1.1} />
       <pointLight position={[-3, -2, -2]} intensity={0.4} color="#c8a24a" />
       {frags.map((f) => (
-        <FragmentMesh key={f.id} f={f} selected={false} />
+        <FragmentMesh key={f.id} f={f} selected={selected?.id === f.id} onSelect={onSelect} />
       ))}
       {/* faint core sphere marking the reconstruction's center of mass */}
       <mesh>
@@ -139,15 +153,46 @@ export default function ReconstructionScene({ ws }: { ws: WorldState | null }) {
     <div className="recon-scene" aria-label="reconstruction visual">
       <Canvas camera={{ position: [0, 0, 2.4], fov: 50 }} dpr={[1, 2]}>
         <color attach="background" args={["#0a0a0c"]} />
-        <Scene ws={ws} onSelect={setSelected} />
+        <Scene ws={ws} selected={selected} onSelect={setSelected} />
       </Canvas>
       <div className="recon-legend">
         <span className="lg solid">■ real Chris bone (canonical)</span>
         <span className="lg stitched">□ stitched from mythos</span>
         <span className="lg dim">· unanchored / drifting</span>
       </div>
+      {selected && (
+        <div className="recon-detail" role="note" aria-label="selected fragment source">
+          <button
+            type="button"
+            className="recon-detail-close"
+            aria-label="close"
+            onClick={() => setSelected(null)}
+          >
+            ×
+          </button>
+          <div className="recon-detail-kind">{sourceLabel(selected)}</div>
+          <div className="recon-detail-text">{selected.label}</div>
+          {selected.provenance?.quote && (
+            <blockquote className="recon-detail-quote">{selected.provenance.quote}</blockquote>
+          )}
+          {selected.claimedBy && (
+            <div className="recon-detail-meta">claimed by: {selected.claimedBy}</div>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+/** Epistemic-framed source label — never asserts world-truth. */
+function sourceLabel(f: ReconFragment): string {
+  const src = f.provenance?.sourceType;
+  if (f.status === "canonical" || f.status === "inferred" || f.status === "observation") {
+    return `canonical · ${src ?? "real Chris"}`;
+  }
+  if (src === "conversation") return "mythos (reconstruction's delusion)";
+  if (src === "reddit" || src === "author" || src === "compiled_event") return `source · ${src}`;
+  return f.status;
 }
 
 // Keep ThreeElements referenced for typing parity (avoids unused-import lint churn).

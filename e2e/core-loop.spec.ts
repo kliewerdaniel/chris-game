@@ -87,3 +87,44 @@ test("reconstruction visual mounts a live canvas", async ({ page }) => {
   await expect(page.locator(".recon-legend")).toContainText("real Chris bone");
   await expect(page.locator(".recon-legend")).toContainText("stitched from mythos");
 });
+
+test("reconstruction detail panel shows source on fragment select", async ({ page }) => {
+  await page.goto("/");
+  // Establish a canonical fact so there is a selectable fragment at center.
+  const input = page.locator(".inputbar input");
+  await expect(input).toBeVisible();
+  await input.fill("examine the post");
+  await page.locator(".inputbar button").click();
+  const ack = page.locator(".chat-disclosure button");
+  if (await ack.count()) {
+    await ack.click();
+    await input.fill("examine the post");
+    await page.locator(".inputbar button").click();
+  }
+  await expect(page.locator(".ev-item").first()).toBeVisible({ timeout: 20_000 });
+
+  // Open the reconstruction visual.
+  await expect(page.locator(".scene-toggle")).toBeVisible();
+  await page.locator(".scene-toggle").click();
+  const scene = page.locator(".recon-scene");
+  await expect(scene).toBeVisible({ timeout: 20_000 });
+
+  // Click near the center where canonical fragments cluster; a fragment is hit
+  // and the detail panel shows an epistemic source label (never world-truth).
+  const canvas = scene.locator("canvas");
+  const box = await canvas.boundingBox();
+  let hit = false;
+  if (box) {
+    for (let gx = 0.35; gx <= 0.65 && !hit; gx += 0.03) {
+      for (let gy = 0.35; gy <= 0.65 && !hit; gy += 0.03) {
+        await canvas.click({ position: { x: box.width * gx, y: box.height * gy } }).catch(() => {});
+        if (await page.locator(".recon-detail").count()) hit = true;
+      }
+    }
+  }
+  await expect(hit).toBe(true);
+  await expect(page.locator(".recon-detail-kind")).toBeVisible();
+  // Closing returns to the bare scene.
+  await page.locator(".recon-detail-close").click();
+  await expect(page.locator(".recon-detail")).toHaveCount(0);
+});
