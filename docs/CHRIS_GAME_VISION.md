@@ -340,10 +340,21 @@ Preserve `lib/` (engine, investigation, types, narrator) wholesale — extend
   dispatch (`tests/m2-dispatch.test.ts`); e2e hypothesize→grows palace
   (`e2e/core-loop.spec.ts`). All green. Model-only: never mutates canonical facts.
 
-### M4 — ACCESSIBILITY + PERFORMANCE HARDENING
-- DOM safety-net completeness; reduced-motion; lazy/dispose WebGL; a11y (axe).
-- (Note: under D6 the DOM view is fallback, not default — but the floor §9
-  holds.)
+### M4 — ACCESSIBILITY + PERFORMANCE HARDENING — DONE
+- **§9 parallel control surface (D6 floor):** every spatial relation the canvas
+  exposes via click is ALSO a keyboard-operable `<button>` in the DOM
+  (`.recon-dom-list .recon-dom-item`), present in the a11y tree while the canvas
+  renders and promoted to a fully operable fallback when WebGL is unavailable
+  (`:not(:has(canvas))`). Verified by the §9 e2e: keyboard focus + Enter on a
+  parallel item opens the same detail panel the canvas click would.
+- **Reduced motion → frameloop "demand":** the R3F `<Canvas frameloop>` switches
+  to on-demand rendering under `prefers-reduced-motion` (no rAF churn), on top of
+  the existing JS-gated drift/flicker suppression. Real perf + preference win.
+- **Lazy/dispose WebGL:** scene is `dynamic(..., { ssr:false })`; mounts/unmounts
+  on `sceneOpen` so R3F disposes the GL context; `focus-visible` outlines added
+  for keyboard operability.
+- **AC:** e2e `§9 parallel DOM control surface is operable in 'the web' mode`.
+  (axe in CI belongs to M5.)
 
 ### M5 — TESTING EXPANSION
 - Visual regression; a11y (axe) in CI; deterministic visual-state tests.

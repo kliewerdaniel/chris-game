@@ -415,3 +415,31 @@ test("memory palace: third view mode + hypothesize grows the player's graph", as
   // The palace graph now has a node — the safety net count goes 0 -> 1.
   await expect(sr).toContainText("1 hypotheses");
 });
+
+// M4 — §9 DOM safety net is a keyboard-operable parallel control surface (D6):
+// every spatial relation the canvas exposes via click is ALSO a real button in
+// the DOM, so the scene is never a hard WebGL wall for keyboard / AT users.
+test("§9 parallel DOM control surface is operable in 'the web' mode", async ({ page }) => {
+  await page.goto("/");
+  const toggle = page.locator(".scene-toggle");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator(".recon-scene")).toBeVisible({ timeout: 20_000 });
+  await page.locator(".recon-mode-toggle button", { hasText: "the web" }).click();
+  await expect(page.locator(".recon-scene canvas")).toBeVisible({ timeout: 20_000 });
+
+  // The parallel DOM list exists in the a11y tree even while the canvas renders.
+  const items = page.locator(".recon-dom-list .recon-dom-item");
+  await expect(items.first()).toBeAttached();
+  const count = await items.count();
+  expect(count).toBeGreaterThan(0);
+
+  // Keyboard/AT path: focusing + activating a parallel item (via keyboard, not
+  // pointer) opens the same epistemic detail panel the canvas click would —
+  // proving parity without requiring a non-clipped hit area (the list is sr-only
+  // while the canvas is present, but fully keyboard-operable in the a11y tree).
+  await items.first().focus();
+  await expect(items.first()).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".recon-detail")).toBeVisible({ timeout: 10_000 });
+});

@@ -268,7 +268,15 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
           →
         </button>
       </div>
-      <Canvas camera={{ position: [0, 0, 2.4], fov: 50 }} dpr={[1, 2]}>
+      <Canvas
+        camera={{ position: [0, 0, 2.4], fov: 50 }}
+        dpr={[1, 2]}
+        // §9 / reduced-motion: stop the continuous render loop when the player
+        // prefers reduced motion. "demand" renders only on prop changes (no
+        // rAF churn) — a real perf + preference win, since drift/flicker are
+        // already JS-gated off under reduced motion.
+        frameloop={reducedMotion ? "demand" : "always"}
+      >
         {/* <Text> suspends while its font loads; without an in-canvas Suspense
             boundary the whole R3F tree suspends and renders nothing (the canvas
             goes blank but no error is thrown). Wrap so the scene always commits. */}
@@ -292,7 +300,10 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
           </>
         )}
       </div>
-      {/* §9 DOM safety net — spatial relations as text (sr-only; visible if WebGL unavailable) */}
+      {/* §9 DOM safety net — parallel control surface. Every spatial relation
+          the canvas exposes via click is ALSO a keyboard-operable button here,
+          so the scene is never a hard WebGL wall (D6). Visually sr-only when the
+          canvas is present; promoted to visible when WebGL is unavailable. */}
       <div className="recon-spatial-sr" aria-label="reconstruction layout description">
         {mode === "graph" ? (
           <p>Spatial reconstruction of Chris as a web of claims. {graph?.nodes.length ?? 0} nodes, {graph?.tensions.length ?? 0} tensions. Every relation is a model, not a verdict.</p>
@@ -301,16 +312,57 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
         ) : (
           <p>Spatial reconstruction of Chris, {ENVIRONMENTS[envId].framing} Its light reads {room?.tone ?? "settled"}.</p>
         )}
-        <ul>
-          {(mode === "graph"
-            ? (graph?.nodes ?? []).slice(0, 8)
-            : mode === "palace"
-            ? (palace?.nodes ?? []).slice(0, 8).map((n) => ({ id: n.id, label: n.text }))
-            : (room?.anchors ?? [])
-          ).map((a: any) => (
-            <li key={a.id}>{a.label}</li>
-          ))}
-        </ul>
+        {/* Keyboard-parallel list: each item mirrors a canvas click target. */}
+        {mode === "graph" ? (
+          <ul className="recon-dom-list" role="list">
+            {(graph?.nodes ?? []).slice(0, 12).map((n) => (
+              <li key={n.id}>
+                <button
+                  type="button"
+                  className="recon-dom-item"
+                  aria-pressed={graphSelected?.id === n.id}
+                  onClick={() => setGraphSelected(graphSelected?.id === n.id ? null : n)}
+                >
+                  {n.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : mode === "palace" ? (
+          <ul className="recon-dom-list" role="list">
+            {(palace?.nodes ?? []).slice(0, 12).map((n) => (
+              <li key={n.id}>
+                <button
+                  type="button"
+                  className="recon-dom-item"
+                  aria-pressed={palaceSelected?.id === n.id}
+                  onClick={() => setPalaceSelected(palaceSelected?.id === n.id ? null : n)}
+                >
+                  {n.text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul className="recon-dom-list" role="list">
+            {(room?.anchors ?? []).map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  className="recon-dom-item"
+                  aria-pressed={selected?.id === a.id}
+                  // Anchors are reconstruction fragments; selecting surfaces the same detail panel.
+                  onClick={() => {
+                    const frag = (room?.anchors ?? []).find((f) => f.id === a.id) as any;
+                    setSelected(selected?.id === a.id ? null : frag ?? null);
+                  }}
+                >
+                  {a.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       {selected && (
         <div className="recon-detail" role="note" aria-label="selected fragment source">
