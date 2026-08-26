@@ -410,6 +410,13 @@ export interface InvestigationPayload {
     /** the weaker claim's source type, when known. */
     weakerSource?: string;
   }[];
+  /**
+   * Episodes (timeline ids) this board aggregates over. Omitted for a
+   * single-timeline board (buildInvestigationPayload); set to the underlying
+   * episode ids by aggregateInvestigation (cross-timeline view). Consumed by
+   * the UI to render the "across N timelines" header.
+   */
+  timelines?: string[];
 }
 
 /**

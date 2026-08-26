@@ -1,28 +1,11 @@
-import type { FactStatus } from "../lib/core/types";
-
-/** Shape returned by /api/investigation — the player's consistency board. */
-export interface InvestigationPayload {
-  episodeId: string;
-  timelines?: string[];
-  established: string[];
-  discovered: string[];
-  corroboration: {
-    factId: string;
-    status?: FactStatus;
-    verdict: string;
-    supporters: number;
-    contradictors: number;
-    timelines?: string[];
-  }[];
-  visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
-  openLeads: { factId: string; label: string; degree: number }[];
-  /** ADR-014 §5.2 auto-prompt — the Board's proactive suggestion (top open lead). */
-  suggestedNext: { factId: string; label: string; degree: number } | null;
-  /** ADR-014 Phase C — actionable divergence alerts (canonical ⊣ mythos tension). */
-  divergenceAlerts: {
-    factId: string;
-    report: string;
-    strongerSource?: string;
-    weakerSource?: string;
-  }[];
-}
+/**
+ * Single source of truth for the consistency-board shape.
+ *
+ * The interface was previously duplicated (declared here AND in
+ * `lib/core/investigation.ts`), which let the two drift — see ADR-014 §1. This
+ * file now re-exports the canonical `InvestigationPayload` from the engine so
+ * there is exactly one definition. The `buildInvestigationPayload` /
+ * `aggregateInvestigation` producers in `lib/core/investigation.ts` type their
+ * return against this same interface.
+ */
+export type { InvestigationPayload } from "../lib/core/investigation";
