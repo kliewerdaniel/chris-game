@@ -21,8 +21,9 @@
 
 import type { WorldState } from "../core/types";
 import type { Vec3 } from "./state";
+import type { EnvironmentId } from "./environment";
 
-export type RoomId = "the_room";
+export type RoomId = EnvironmentId;
 
 /** A place the reconstruction was anchored to in the real world (epistemic). */
 export interface RoomAnchor {

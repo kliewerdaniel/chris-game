@@ -350,3 +350,28 @@ test("reconstruction graph node click opens the detail panel", async ({ page }) 
   // the graph view routes player intent through the existing disclosure system.
   await expect(page.locator(".recon-detail-kind")).toBeVisible({ timeout: 10_000 });
 });
+
+test("reconstruction environment toggle cycles the room / porch / last call", async ({ page }) => {
+  await page.goto("/");
+  const toggle = page.locator(".scene-toggle");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator(".recon-scene")).toBeVisible({ timeout: 20_000 });
+
+  // Default environment is "the room".
+  const placeBtn = page.locator(".recon-mode-toggle button").first();
+  await expect(placeBtn).toContainText("the room");
+
+  // Cycle once -> "the porch".
+  const cycleBtn = page.locator(".recon-mode-toggle button").nth(2);
+  await cycleBtn.click();
+  await expect(placeBtn).toContainText("the porch");
+
+  // Cycle again -> "the last call".
+  await cycleBtn.click();
+  await expect(placeBtn).toContainText("the last call");
+
+  // The DOM safety net reflects the current environment's framing.
+  const sr = page.locator(".recon-spatial-sr");
+  await expect(sr).toContainText("last call");
+});

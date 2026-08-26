@@ -6,6 +6,7 @@ import { OrbitControls, Text } from "@react-three/drei";
 import { buildReconstructionState } from "../lib/reconstruction/state";
 import { buildRoomState } from "../lib/reconstruction/room";
 import { buildGraphLayout } from "../lib/reconstruction/graph";
+import { ENVIRONMENTS, nextEnvironment, buildEnvironmentState, type EnvironmentId } from "../lib/reconstruction/environment";
 import RoomEnvironment from "./RoomEnvironment";
 import GraphConstellation from "./GraphConstellation";
 import type { ReconstructionState, ReconFragment, Vec3 } from "../lib/reconstruction/state";
@@ -199,6 +200,7 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
   const [selected, setSelected] = useState<ReconFragment | null>(null);
   const [graphSelected, setGraphSelected] = useState<GraphNode | null>(null);
   const [mode, setMode] = useState<"room" | "graph">("room");
+  const [envId, setEnvId] = useState<EnvironmentId>("the_room");
   const reducedMotion = usePrefersReducedMotion();
   // DOM safety net (§9 floor): the room's spatial relations are also expressed
   // as text so the scene is never a hard WebGL wall. Not the primary view, but
@@ -208,8 +210,8 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
     const recon = buildReconstructionState(ws);
     const statuses: Record<string, string> = {};
     for (const f of recon.fragments) statuses[f.id] = f.status;
-    return buildRoomState(ws, statuses);
-  }, [ws]);
+    return buildEnvironmentState(envId, ws, statuses);
+  }, [ws, envId]);
   const graph = useMemo(() => (ws ? buildGraphLayout(ws) : null), [ws]);
   if (!ws) return null;
   return (
@@ -221,7 +223,7 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
           aria-pressed={mode === "room"}
           onClick={() => setMode("room")}
         >
-          the room
+          {ENVIRONMENTS[envId].label}
         </button>
         <button
           type="button"
@@ -230,6 +232,14 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
           onClick={() => setMode("graph")}
         >
           the web
+        </button>
+        <button
+          type="button"
+          className="asbtn"
+          title="Move to the next place"
+          onClick={() => setEnvId((e) => nextEnvironment(e))}
+        >
+          →
         </button>
       </div>
       <Canvas camera={{ position: [0, 0, 2.4], fov: 50 }} dpr={[1, 2]}>
@@ -251,7 +261,7 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
         {mode === "graph" ? (
           <p>Spatial reconstruction of Chris as a web of claims. {graph?.nodes.length ?? 0} nodes, {graph?.tensions.length ?? 0} tensions. Every relation is a model, not a verdict.</p>
         ) : (
-          <p>Spatial reconstruction of Chris, framed by the room. The lamp marks the center; its light reads {room?.tone ?? "settled"}.</p>
+          <p>Spatial reconstruction of Chris, {ENVIRONMENTS[envId].framing} Its light reads {room?.tone ?? "settled"}.</p>
         )}
         <ul>
           {(mode === "graph" ? (graph?.nodes ?? []).slice(0, 8) : (room?.anchors ?? [])).map((a: any) => (
