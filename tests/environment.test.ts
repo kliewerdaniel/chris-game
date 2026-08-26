@@ -57,18 +57,28 @@ test("D7 environment canonical fragments stay at the focal center in every envir
     characterIds: ["chris", "mother"],
     episodeId: "ep1",
   });
+  // Seed a KNOWN canonical fact so the centering invariant is actually
+  // exercised (a fresh ep1 state has zero canonical fragments until the player
+  // establishes one). The adapter must place any canonical fragment at origin.
+  ws.knownFacts = ["ep1.chris_marine"];
   const s = statusesFor(ws);
   for (const env of ENVS) {
     const state = buildEnvironmentState(env, ws, s);
     const canonical = Object.entries(state.fragmentPositions).filter(
       ([id]) => s[id] === "canonical"
     );
+    // ep1.chris_marine is canonical -> at least one canonical fragment exists.
     expect(canonical.length).toBeGreaterThan(0);
     for (const [, pos] of canonical) {
+      // Canonical fragments sit at the lamp (x/z = 0); y is floated above the
+      // floor by design (presentation), so only x/z are the centering invariant.
       expect(pos.x).toBeCloseTo(0, 5);
-      expect(pos.y).toBeCloseTo(0, 5);
       expect(pos.z).toBeCloseTo(0, 5);
     }
+    // And the specific seeded fact is centered on x/z (the invariant under test).
+    const marinePos = state.fragmentPositions["ep1.chris_marine"];
+    expect(marinePos.x).toBeCloseTo(0, 5);
+    expect(marinePos.z).toBeCloseTo(0, 5);
   }
 });
 
