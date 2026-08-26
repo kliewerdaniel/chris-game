@@ -363,7 +363,7 @@ test("reconstruction environment toggle cycles the room / porch / last call", as
   await expect(placeBtn).toContainText("the room");
 
   // Cycle once -> "the porch".
-  const cycleBtn = page.locator(".recon-mode-toggle button").nth(2);
+  const cycleBtn = page.locator('.recon-mode-toggle button[title="Move to the next place"]');
   await cycleBtn.click();
   await expect(placeBtn).toContainText("the porch");
 
@@ -374,4 +374,44 @@ test("reconstruction environment toggle cycles the room / porch / last call", as
   // The DOM safety net reflects the current environment's framing.
   const sr = page.locator(".recon-spatial-sr");
   await expect(sr).toContainText("last call");
+});
+
+// M2 — the player's own reconstruction graph (Memory Palace) is a third view
+// mode. It is the player's model, not the canonical web. The DOM safety net
+// must describe it as the player's hypotheses, and a `hypothesize` command must
+// grow the palace from empty.
+test("memory palace: third view mode + hypothesize grows the player's graph", async ({ page }) => {
+  await page.goto("/");
+  const toggle = page.locator(".scene-toggle");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator(".recon-scene")).toBeVisible({ timeout: 20_000 });
+
+  const palaceBtn = page.locator(".recon-mode-toggle button", { hasText: "memory palace" });
+  await expect(palaceBtn).toBeVisible();
+  await palaceBtn.click();
+  await expect(palaceBtn).toHaveAttribute("aria-pressed", "true");
+
+  // Empty state described by the DOM safety net.
+  const sr = page.locator(".recon-spatial-sr");
+  await expect(sr).toContainText("Your reconstruction of Chris");
+  await expect(sr).toContainText("hypotheses");
+
+  // Issue a hypothesize command through the game input.
+  const input = page.locator('input[aria-label="command input"]');
+  await expect(input).toBeVisible();
+  await input.fill("hypothesize Chris was a Marine scout re: ep1.chris_marine");
+  await input.press("Enter");
+
+  // ADR-011 one-time disclosure gates the first free-form turn. Acknowledge it.
+  const ack = page.locator('button.confirm-danger', { hasText: "I understand" });
+  if (await ack.count()) {
+    await ack.first().click();
+    // Re-issue the command now that the gate is cleared.
+    await input.fill("hypothesize Chris was a Marine scout re: ep1.chris_marine");
+    await input.press("Enter");
+  }
+
+  // The palace graph now has a node — the safety net count goes 0 -> 1.
+  await expect(sr).toContainText("1 hypotheses");
 });

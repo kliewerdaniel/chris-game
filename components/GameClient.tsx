@@ -832,10 +832,11 @@ export function GameClient() {
 
 function commandHints(ws: WorldState | null): string[] {
   const ep = ws?.episodeId;
+  const m2: string[] = ["hypothesize your theory of Chris", "connect one fact to another", "test a hypothesis"];
   if (ep === "ep2")
-    return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the photo", "confront the feed", "help"];
+    return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the photo", "confront the feed", "help", ...m2];
   if (ep === "ep3")
-    return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the post", "confront the feed", "help"];
+    return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the post", "confront the feed", "help", ...m2];
   if (ep === "ep4")
     return [
       "look around",
@@ -844,8 +845,9 @@ function commandHints(ws: WorldState | null): string[] {
       "examine the letter",
       "examine the output log",
       "help",
+      ...m2,
     ];
-  return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the post", "confront the feed", "search the room", "sleep"];
+  return ["look around", "talk to the feed", "ask the feed if it's really Chris", "examine the post", "confront the feed", "search the room", "sleep", ...m2];
 }
 
 // Re-imported here (kept local to avoid a circular concern); identical to source.

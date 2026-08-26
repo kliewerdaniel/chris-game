@@ -9,10 +9,13 @@ import { buildGraphLayout } from "../lib/reconstruction/graph";
 import { ENVIRONMENTS, nextEnvironment, buildEnvironmentState, type EnvironmentId } from "../lib/reconstruction/environment";
 import RoomEnvironment from "./RoomEnvironment";
 import GraphConstellation from "./GraphConstellation";
+import MemoryPalace from "./MemoryPalace";
 import type { ReconstructionState, ReconFragment, Vec3 } from "../lib/reconstruction/state";
 import type { RoomState } from "../lib/reconstruction/room";
 import type { GraphState, GraphNode } from "../lib/reconstruction/graph";
 import type { WorldState } from "../lib/core/types";
+import type { PlayerGraphNode } from "../lib/core/player-graph";
+import { buildPlayerGraph } from "../lib/core/player-graph";
 
 /** Read prefers-reduced-motion (SSR-safe). */
 function usePrefersReducedMotion(): boolean {
@@ -139,7 +142,7 @@ function FragmentMesh({ f, selected, onSelect, home, reducedMotion }: { f: Recon
   );
 }
 
-function Scene({ ws, selected, onSelect, reducedMotion, mode, graphSelected, onGraphSelect }: { ws: WorldState; selected: ReconFragment | null; onSelect: (f: ReconFragment | null) => void; reducedMotion: boolean; mode: "room" | "graph"; graphSelected: GraphNode | null; onGraphSelect: (n: GraphNode | null) => void }) {
+function Scene({ ws, selected, onSelect, reducedMotion, mode, graphSelected, onGraphSelect, palaceSelected, onPalaceSelect }: { ws: WorldState; selected: ReconFragment | null; onSelect: (f: ReconFragment | null) => void; reducedMotion: boolean; mode: "room" | "graph" | "palace"; graphSelected: GraphNode | null; onGraphSelect: (n: GraphNode | null) => void; palaceSelected: PlayerGraphNode | null; onPalaceSelect: (n: PlayerGraphNode | null) => void }) {
   const recon: ReconstructionState = useMemo(() => buildReconstructionState(ws), [ws]);
   const room: RoomState = useMemo(() => {
     const statuses: Record<string, string> = {};
@@ -148,6 +151,19 @@ function Scene({ ws, selected, onSelect, reducedMotion, mode, graphSelected, onG
   }, [ws, recon]);
   const graph: GraphState = useMemo(() => buildGraphLayout(ws), [ws]);
   const frags = recon.fragments;
+
+  // Palace mode renders the PLAYER's own reconstruction graph (M2) — a model,
+  // not the canonical investigation web.
+  if (mode === "palace") {
+    return (
+      <MemoryPalace
+        ws={ws}
+        selected={palaceSelected}
+        onSelect={onPalaceSelect}
+        reducedMotion={reducedMotion}
+      />
+    );
+  }
 
   // Graph mode renders the constellation instead of the room frame + drifting
   // fragments. Node selection flows through `onGraphSelect` and surfaces the
@@ -199,7 +215,8 @@ function Scene({ ws, selected, onSelect, reducedMotion, mode, graphSelected, onG
 export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: WorldState | null; onChallengeClaim?: (factId: string) => void }) {
   const [selected, setSelected] = useState<ReconFragment | null>(null);
   const [graphSelected, setGraphSelected] = useState<GraphNode | null>(null);
-  const [mode, setMode] = useState<"room" | "graph">("room");
+  const [palaceSelected, setPalaceSelected] = useState<PlayerGraphNode | null>(null);
+  const [mode, setMode] = useState<"room" | "graph" | "palace">("room");
   const [envId, setEnvId] = useState<EnvironmentId>("the_room");
   const reducedMotion = usePrefersReducedMotion();
   // DOM safety net (§9 floor): the room's spatial relations are also expressed
@@ -213,6 +230,7 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
     return buildEnvironmentState(envId, ws, statuses);
   }, [ws, envId]);
   const graph = useMemo(() => (ws ? buildGraphLayout(ws) : null), [ws]);
+  const palace = useMemo(() => (ws ? buildPlayerGraph(ws) : null), [ws]);
   if (!ws) return null;
   return (
     <div className="recon-scene" aria-label="reconstruction visual">
@@ -235,6 +253,14 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
         </button>
         <button
           type="button"
+          className={`asbtn${mode === "palace" ? " active" : ""}`}
+          aria-pressed={mode === "palace"}
+          onClick={() => setMode("palace")}
+        >
+          memory palace
+        </button>
+        <button
+          type="button"
           className="asbtn"
           title="Move to the next place"
           onClick={() => setEnvId((e) => nextEnvironment(e))}
@@ -248,23 +274,40 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
             goes blank but no error is thrown). Wrap so the scene always commits. */}
         <Suspense fallback={null}>
           <color attach="background" args={["#0a0a0c"]} />
-          <Scene ws={ws} selected={selected} onSelect={setSelected} reducedMotion={reducedMotion} mode={mode} graphSelected={graphSelected} onGraphSelect={setGraphSelected} />
+          <Scene ws={ws} selected={selected} onSelect={setSelected} reducedMotion={reducedMotion} mode={mode} graphSelected={graphSelected} onGraphSelect={setGraphSelected} palaceSelected={palaceSelected} onPalaceSelect={setPalaceSelected} />
         </Suspense>
       </Canvas>
       <div className="recon-legend">
-        <span className="lg solid">■ real Chris bone (canonical)</span>
-        <span className="lg stitched">□ stitched from mythos</span>
-        <span className="lg dim">· unanchored / drifting</span>
+        {mode === "palace" ? (
+          <>
+            <span className="lg solid">● corroborated by the record</span>
+            <span className="lg stitched">● divergent from the record</span>
+            <span className="lg dim">· unanchored — your theory</span>
+          </>
+        ) : (
+          <>
+            <span className="lg solid">■ real Chris bone (canonical)</span>
+            <span className="lg stitched">□ stitched from mythos</span>
+            <span className="lg dim">· unanchored / drifting</span>
+          </>
+        )}
       </div>
       {/* §9 DOM safety net — spatial relations as text (sr-only; visible if WebGL unavailable) */}
       <div className="recon-spatial-sr" aria-label="reconstruction layout description">
         {mode === "graph" ? (
           <p>Spatial reconstruction of Chris as a web of claims. {graph?.nodes.length ?? 0} nodes, {graph?.tensions.length ?? 0} tensions. Every relation is a model, not a verdict.</p>
+        ) : mode === "palace" ? (
+          <p>Your reconstruction of Chris — {palace?.nodes.length ?? 0} hypotheses, {palace?.edges.length ?? 0} links. A model you built, not a verdict the engine handed you.</p>
         ) : (
           <p>Spatial reconstruction of Chris, {ENVIRONMENTS[envId].framing} Its light reads {room?.tone ?? "settled"}.</p>
         )}
         <ul>
-          {(mode === "graph" ? (graph?.nodes ?? []).slice(0, 8) : (room?.anchors ?? [])).map((a: any) => (
+          {(mode === "graph"
+            ? (graph?.nodes ?? []).slice(0, 8)
+            : mode === "palace"
+            ? (palace?.nodes ?? []).slice(0, 8).map((n) => ({ id: n.id, label: n.text }))
+            : (room?.anchors ?? [])
+          ).map((a: any) => (
             <li key={a.id}>{a.label}</li>
           ))}
         </ul>
@@ -314,6 +357,30 @@ export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: Worl
           </div>
           <div className="recon-detail-text">{graphSelected.label}</div>
           <div className="recon-detail-meta">a node in the reconstruction web — a model, not a verdict.</div>
+        </div>
+      )}
+      {!selected && !graphSelected && palaceSelected && (
+        <div className="recon-detail" role="note" aria-label="selected palace node">
+          <button
+            type="button"
+            className="recon-detail-close"
+            aria-label="close"
+            onClick={() => setPalaceSelected(null)}
+          >
+            ×
+          </button>
+          <div className="recon-detail-kind">
+            your hypothesis · {palaceSelected.verdict ?? "untested"}
+            {palaceSelected.anchors ? ` · anchored to ${palaceSelected.anchors}` : " · unanchored"}
+          </div>
+          <div className="recon-detail-text">{palaceSelected.text}</div>
+          <div className="recon-detail-meta">
+            {palaceSelected.verdict === "corroborated"
+              ? "the record holds with this."
+              : palaceSelected.verdict === "divergent"
+              ? "the record does not hold with this — a model, not a verdict."
+              : "unanchored — no canonical claim to test against."}
+          </div>
         </div>
       )}
     </div>

@@ -196,6 +196,11 @@ export interface WorldState {
   firedEventIds?: string[];
   /** ADR-005: rolling conversation transcript the riff loop reads (player + model lines). */
   conversationLog: Exchange[];
+  /** M2 — the player's OWN reconstruction graph (a model, never engine truth).
+   *  Distinct from the canonical investigation graph. Auto-persisted by the
+   *  plain-JSON save; never read by the engine as world-truth. */
+  playerNodes: import("./player-graph").PlayerGraphNode[];
+  playerEdges: import("./player-graph").PlayerGraphEdge[];
 }
 
 export interface CharacterRuntimeState {
@@ -291,6 +296,9 @@ export type IntentVerb =
   | "call"
   | "confront"
   | "challenge" // ADR-014: interrogate a reconstruction/testimony line
+  | "hypothesize" // M2: form a reconstruction node
+  | "connect" // M2: draw a player edge between claims
+  | "test" // M2: evaluate a reconstruction node against the record
   | "sleep"
   | "tell"
   | "wait"

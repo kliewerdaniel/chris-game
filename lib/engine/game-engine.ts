@@ -22,6 +22,7 @@ import { EPISODE3 } from "./episode3";
 import { EPISODE4 } from "./episode4";
 import { applyWorldEvents } from "./world-events";
 import { buildInvestigationPayload } from "../core/investigation";
+import { doReconstruct } from "./reconstruct";
 
 export const EPISODES: Record<string, Episode> = {
   ep1: EPISODE1,
@@ -108,6 +109,17 @@ export class GameEngine {
     // it is never trusted to mutate state directly.
     const ep = this.getEpisode(state);
     let action = parseAction(raw);
+
+    // M2 — player reconstruction-graph actions are engine-level, game-wide
+    // verbs. Route them before episode dispatch; they mutate only the player's
+    // own graph layer and never touch canonical facts.
+    if (["hypothesize", "connect", "test"].includes(action.type)) {
+      const rec = doReconstruct(state, action);
+      if (rec) {
+        const worldStep = applyWorldEvents(rec.state);
+        return { state: worldStep.state, result: rec.result, action };
+      }
+    }
 
     if (process.env.CHRIS_USE_LLM_PARSE === "1" && this.deps.inference) {
       const allowed = this.allowedFor(state, ep);
@@ -202,6 +214,17 @@ export class GameEngine {
     action: GameAction
   ): Promise<{ state: WorldState; result: ActionResult; action: GameAction }> {
     const ep = this.getEpisode(state);
+
+    // M2 — player reconstruction-graph actions are engine-level, game-wide
+    // verbs. Route them before episode dispatch / chat-coercion; they mutate
+    // only the player's own graph layer and never touch canonical facts.
+    if (["hypothesize", "connect", "test"].includes(action.type)) {
+      const rec = doReconstruct(state, action);
+      if (rec) {
+        const worldStep = applyWorldEvents(rec.state);
+        return { state: worldStep.state, result: rec.result, action };
+      }
+    }
 
     // Universal chat coercion for unconfident/empty actions (ADR-006).
     if (!isConfident(action)) {

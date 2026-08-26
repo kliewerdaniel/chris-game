@@ -328,13 +328,17 @@ Preserve `lib/` (engine, investigation, types, narrator) wholesale — extend
 - DOM safety net per §9 present but not primary.
 - **AC:** e2e mounts scene from a known WorldState; parity e2e still green.
 
-### M2 — PLAYER RECONSTRUCTION GRAPH (the "Build" fork; frozen-spine green-lit)
+### M2 — PLAYER RECONSTRUCTION GRAPH (the "Build" fork; frozen-spine green-lit) — DONE
 - New `hypothesize` / `connect` / `test` actions; `PlayerReconstruction` state.
 - Engine evaluates proposed edges against canonical (deterministic); ledger
   entries. Contradictions emerge.
-- **Files:** `lib/core/types.ts`, `lib/core/investigation.ts` (evaluate),
-  `lib/engine/*` (dispatch), `components/*` (graph UI).
-- **AC:** unit tests for edge evaluation; e2e hypothesize→connect→diverge.
+- **Files:** `lib/core/types.ts`, `lib/core/player-graph.ts` (new — deterministic
+  adapter), `lib/engine/reconstruct.ts` (new dispatch), `lib/engine/game-engine.ts`
+  (route), `components/MemoryPalace.tsx` (new R3F view), `components/ReconstructionScene.tsx`
+  (third "memory palace" mode), `components/GameClient.tsx` (command hints).
+- **AC:** unit tests for edge evaluation (`tests/player-graph.test.ts`); engine
+  dispatch (`tests/m2-dispatch.test.ts`); e2e hypothesize→grows palace
+  (`e2e/core-loop.spec.ts`). All green. Model-only: never mutates canonical facts.
 
 ### M4 — ACCESSIBILITY + PERFORMANCE HARDENING
 - DOM safety-net completeness; reduced-motion; lazy/dispose WebGL; a11y (axe).

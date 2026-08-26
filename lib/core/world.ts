@@ -64,6 +64,8 @@ export function createWorldState(opts: {
     progression: 0,
     episodeComplete: false,
     conversationLog: [],
+    playerNodes: [],
+    playerEdges: [],
   };
 }
 
