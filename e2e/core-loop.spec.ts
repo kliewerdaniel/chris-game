@@ -262,3 +262,38 @@ test("open leads drive the player: clicking 'investigate' runs the challenge loo
   const logAfter = await page.locator(".line").count();
   expect(logAfter).toBeGreaterThan(logBefore);
 });
+
+// M3 — the room environment ("the room", D12) frames the reconstruction inside
+// the live WebGL canvas. Catches R3F v9 / RoomEnvironment regressions that
+// build-time checks miss.
+test("reconstruction room environment mounts inside the canvas", async ({ page }) => {
+  await page.goto("/");
+  const toggle = page.locator(".scene-toggle");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator(".recon-scene")).toBeVisible({ timeout: 20_000 });
+  const canvas = page.locator(".recon-scene canvas");
+  await expect(canvas).toBeVisible({ timeout: 20_000 });
+  // The DOM safety net (§9 floor) is always present in the DOM tree, even while
+  // WebGL renders — so screen-reader / no-WebGL audiences get the layout as text.
+  const sr = page.locator(".recon-spatial-sr");
+  await expect(sr).toHaveCount(1);
+  await expect(sr).toContainText("the lamp");
+  await expect(sr).toContainText("his chair");
+});
+
+// M3 — reduced-motion users get a static scene: the canvas still mounts, but the
+// fragment drift/flicker is suppressed (verified at the adapter + CSS level; here
+// we assert the WebGL canvas is present and no motion exception is thrown).
+test("reconstruction visual is robust under reduced-motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const toggle = page.locator(".scene-toggle");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  const canvas = page.locator(".recon-scene canvas");
+  await expect(canvas).toBeVisible({ timeout: 20_000 });
+  // Legend + safety net still present (no WebGL wall).
+  await expect(page.locator(".recon-legend")).toContainText("real Chris bone");
+  await expect(page.locator(".recon-spatial-sr")).toHaveCount(1);
+});

@@ -1,11 +1,20 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, Suspense } from "react";
 import { Canvas, useFrame, type ThreeElements } from "@react-three/fiber";
 import { OrbitControls, Text } from "@react-three/drei";
 import { buildReconstructionState } from "../lib/reconstruction/state";
-import type { ReconstructionState, ReconFragment } from "../lib/reconstruction/state";
+import { buildRoomState } from "../lib/reconstruction/room";
+import RoomEnvironment from "./RoomEnvironment";
+import type { ReconstructionState, ReconFragment, Vec3 } from "../lib/reconstruction/state";
+import type { RoomState } from "../lib/reconstruction/room";
 import type { WorldState } from "../lib/core/types";
+
+/** Read prefers-reduced-motion (SSR-safe). */
+function usePrefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 /**
  * ADR-014 Phase B — R3F reconstruction visual.
@@ -49,7 +58,7 @@ function fragmentTreatment(f: ReconFragment): {
   return { solid: false, stitched: true, color: "#b98a3a" };
 }
 
-function FragmentMesh({ f, selected, onSelect }: { f: ReconFragment; selected: boolean; onSelect: (f: ReconFragment | null) => void }) {
+function FragmentMesh({ f, selected, onSelect, home, reducedMotion }: { f: ReconFragment; selected: boolean; onSelect: (f: ReconFragment | null) => void; home: Vec3; reducedMotion: boolean }) {
   const ref = useRef<any>(null);
   const { solid, stitched, color } = fragmentTreatment(f);
   // Deterministic jitter from the fragment seed (no randomness at placement).
@@ -65,15 +74,19 @@ function FragmentMesh({ f, selected, onSelect }: { f: ReconFragment; selected: b
   useFrame((state) => {
     if (!ref.current) return;
     const t = state.clock.elapsedTime;
-    // Anchored -> still. Unanchored -> slow deterministic drift.
-    if (!f.anchored) {
-      ref.current.position.x = f.region.x + Math.sin(t * 0.3 + f.seed * 6.28) * 0.06;
-      ref.current.position.y = f.region.y + Math.cos(t * 0.23 + f.seed * 6.28) * 0.06;
-      ref.current.position.z = f.region.z + Math.sin(t * 0.19 + f.seed * 3.14) * 0.06;
+    // Anchored -> still. Unanchored -> slow deterministic drift around the home
+    // position (gated by reduced motion). Drift is LOCAL to the group (which sits
+    // at `home`); canonical/anchored fragments therefore stay at the room center.
+    if (!f.anchored && !reducedMotion) {
+      ref.current.position.x = Math.sin(t * 0.3 + f.seed * 6.28) * 0.06;
+      ref.current.position.y = Math.cos(t * 0.23 + f.seed * 6.28) * 0.06;
+      ref.current.position.z = Math.sin(t * 0.19 + f.seed * 3.14) * 0.06;
+    } else if (ref.current) {
+      ref.current.position.set(0, 0, 0);
     }
     // Stitched (mythos) fragments flicker their scale to read as "unstable weave".
     if (stitched && ref.current) {
-      const flick = 1 + Math.sin(t * 2.3 + f.seed * 12) * 0.05;
+      const flick = reducedMotion ? 1 : 1 + Math.sin(t * 2.3 + f.seed * 12) * 0.05;
       ref.current.scale.setScalar(f.size * (selected ? 1.4 : 1) * flick);
     } else if (ref.current) {
       ref.current.scale.setScalar(f.size * (selected ? 1.4 : 1));
@@ -84,7 +97,9 @@ function FragmentMesh({ f, selected, onSelect }: { f: ReconFragment; selected: b
   const args = solid ? [0.08, 0] : [0.12, 0.12, 0.12];
 
   return (
-    <group position={[f.region.x + jitter.x, f.region.y + jitter.y, f.region.z + jitter.z]}>
+    // Group sits at HOME (room adapter position) + static jitter. Canonical /
+    // anchored fragments stay near the lamp (center); unanchored scatter outward.
+    <group position={[home.x + jitter.x, home.y + jitter.y, home.z + jitter.z]}>
       <mesh
         ref={ref}
         castShadow
@@ -120,19 +135,33 @@ function FragmentMesh({ f, selected, onSelect }: { f: ReconFragment; selected: b
   );
 }
 
-function Scene({ ws, selected, onSelect }: { ws: WorldState; selected: ReconFragment | null; onSelect: (f: ReconFragment | null) => void }) {
+function Scene({ ws, selected, onSelect, reducedMotion }: { ws: WorldState; selected: ReconFragment | null; onSelect: (f: ReconFragment | null) => void; reducedMotion: boolean }) {
   const recon: ReconstructionState = useMemo(() => buildReconstructionState(ws), [ws]);
+  const room: RoomState = useMemo(() => {
+    const statuses: Record<string, string> = {};
+    for (const f of recon.fragments) statuses[f.id] = f.status;
+    return buildRoomState(ws, statuses);
+  }, [ws, recon]);
   const frags = recon.fragments;
   return (
     <>
+      {/* M3 — the room environment frames the reconstruction (asset-agnostic placeholder). */}
+      <RoomEnvironment room={room} reducedMotion={reducedMotion} />
       <ambientLight intensity={0.35} />
       <pointLight position={[2, 3, 4]} intensity={1.1} />
       <pointLight position={[-3, -2, -2]} intensity={0.4} color="#c8a24a" />
-      {frags.map((f) => (
-        <FragmentMesh key={f.id} f={f} selected={selected?.id === f.id} onSelect={onSelect} />
-      ))}
-      {/* faint core sphere marking the reconstruction's center of mass */}
-      <mesh>
+      {frags.map((f) => {
+        // Home position from the room adapter: canonical/anchored stay near the
+        // lamp (center), unanchored scatter outward by status — carrying the
+        // Two-Chris gap into the space. The existing e2e hits the center, so a
+        // canonical fragment must remain near (0,0,0).
+        const home: Vec3 = room.fragmentPositions[f.id] ?? f.region;
+        return (
+          <FragmentMesh key={f.id} f={f} selected={selected?.id === f.id} onSelect={onSelect} home={home} reducedMotion={reducedMotion} />
+        );
+      })}
+      {/* faint core sphere marking the reconstruction's center of mass (decorative) */}
+      <mesh raycast={() => null}>
         <sphereGeometry args={[0.03, 16, 16]} />
         <meshBasicMaterial color="#c8a24a" transparent opacity={0.25} />
       </mesh>
@@ -148,17 +177,42 @@ function Scene({ ws, selected, onSelect }: { ws: WorldState; selected: ReconFrag
 
 export default function ReconstructionScene({ ws, onChallengeClaim }: { ws: WorldState | null; onChallengeClaim?: (factId: string) => void }) {
   const [selected, setSelected] = useState<ReconFragment | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
+  // DOM safety net (§9 floor): the room's spatial relations are also expressed
+  // as text so the scene is never a hard WebGL wall. Not the primary view, but
+  // never absent.
+  const room = useMemo(() => {
+    if (!ws) return null;
+    const recon = buildReconstructionState(ws);
+    const statuses: Record<string, string> = {};
+    for (const f of recon.fragments) statuses[f.id] = f.status;
+    return buildRoomState(ws, statuses);
+  }, [ws]);
   if (!ws) return null;
   return (
     <div className="recon-scene" aria-label="reconstruction visual">
       <Canvas camera={{ position: [0, 0, 2.4], fov: 50 }} dpr={[1, 2]}>
-        <color attach="background" args={["#0a0a0c"]} />
-        <Scene ws={ws} selected={selected} onSelect={setSelected} />
+        {/* <Text> suspends while its font loads; without an in-canvas Suspense
+            boundary the whole R3F tree suspends and renders nothing (the canvas
+            goes blank but no error is thrown). Wrap so the scene always commits. */}
+        <Suspense fallback={null}>
+          <color attach="background" args={["#0a0a0c"]} />
+          <Scene ws={ws} selected={selected} onSelect={setSelected} reducedMotion={reducedMotion} />
+        </Suspense>
       </Canvas>
       <div className="recon-legend">
         <span className="lg solid">■ real Chris bone (canonical)</span>
         <span className="lg stitched">□ stitched from mythos</span>
         <span className="lg dim">· unanchored / drifting</span>
+      </div>
+      {/* §9 DOM safety net — spatial relations as text (sr-only; visible if WebGL unavailable) */}
+      <div className="recon-spatial-sr" aria-label="reconstruction layout description">
+        <p>Spatial reconstruction of Chris, framed by the room. The lamp marks the center; its light reads {room?.tone ?? "settled"}.</p>
+        <ul>
+          {(room?.anchors ?? []).map((a) => (
+            <li key={a.id}>{a.label}</li>
+          ))}
+        </ul>
       </div>
       {selected && (
         <div className="recon-detail" role="note" aria-label="selected fragment source">

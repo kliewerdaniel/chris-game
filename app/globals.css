@@ -876,3 +876,37 @@ button:disabled { cursor: not-allowed; }
   font-size: 11px;
   color: var(--muted-foreground);
 }
+
+/* §9 DOM safety net — spatial relations as text. Screen-reader + WebGL-fail
+   audiences get the layout as text. Visually hidden but present in the DOM. */
+.recon-spatial-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* If WebGL is unavailable the canvas won't mount; surface the text fallback. */
+.recon-scene:not(:has(canvas)) .recon-spatial-sr {
+  position: relative;
+  width: auto;
+  height: auto;
+  margin: 0;
+  clip: auto;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* Reduced-motion: the scene renders static (no drift/flicker handled in JS),
+   and any CSS animation on the reconstruction surface is suppressed. */
+@media (prefers-reduced-motion: reduce) {
+  .recon-scene * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
