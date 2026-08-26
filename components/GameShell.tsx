@@ -343,6 +343,21 @@ export function CaseFile(props: {
                   ))}
                 </div>
               )}
+              {board.divergenceAlerts?.length > 0 && (
+                <div className="board-section">
+                  <div className="board-label warn">DIVERGENCE ALERTS ({board.divergenceAlerts.length})</div>
+                  {board.divergenceAlerts.map((a) => (
+                    <div key={a.factId + (a.report ?? "")} className="board-row contra alert">
+                      <span className="board-text">{a.report}</span>
+                      {a.strongerSource && a.weakerSource && (
+                        <div className="board-sub">
+                          {a.strongerSource} ⊣ {a.weakerSource} · re-read source or challenge the claim
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               {board.visibleContradictions?.length > 0 && (
                 <div className="board-section">
                   <div className="board-label warn">CONTRADICTIONS ({board.visibleContradictions.length})</div>

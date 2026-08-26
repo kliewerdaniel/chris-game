@@ -69,3 +69,21 @@ test("command affordance is collapsed, not a permanent wall", async ({ page }) =
   await page.locator(".help-toggle").click();
   await expect(page.locator(".help-list")).toBeVisible();
 });
+
+// ADR-014 Phase B — the R3F reconstruction visual must actually mount a WebGL
+// canvas in a real browser (not just compile). Catches R3F/three regressions
+// that build-time checks miss.
+test("reconstruction visual mounts a live canvas", async ({ page }) => {
+  await page.goto("/");
+  // The reconstruction panel is behind a toggle (perf). Open it.
+  const toggle = page.locator(".scene-toggle");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  // After opening, the R3F panel and its WebGL canvas must actually mount.
+  await expect(page.locator(".recon-scene")).toBeVisible({ timeout: 20_000 });
+  const canvas = page.locator(".recon-scene canvas");
+  await expect(canvas).toBeVisible({ timeout: 20_000 });
+  // The legend communicates the Two-Chris visual grammar.
+  await expect(page.locator(".recon-legend")).toContainText("real Chris bone");
+  await expect(page.locator(".recon-legend")).toContainText("stitched from mythos");
+});

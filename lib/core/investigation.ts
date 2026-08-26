@@ -339,6 +339,26 @@ export function buildInvestigationPayload(state: WorldState) {
       report: c.report,
       claimLabels: c.claimNodeIds.map((id) => g.nodes.get(id)?.label ?? id),
     })),
+    // ADR-014 Phase C: promote contradictions where a stronger (canonical /
+    // Tier-0) claim is in tension with a weaker (mythos / Tier-2) reconstruction
+    // claim into actionable divergence alerts. We classify claim-node strength by
+    // its claimedBy / sourceType when resolvable to a fact; otherwise by node kind.
+    divergenceAlerts: pi.visibleContradictions.flatMap((c) => {
+      const stronger = g.nodes.get(c.factId);
+      const weaker = c.claimNodeIds.map((id) => g.nodes.get(id)).filter(Boolean);
+      if (weaker.length === 0) return [];
+      // Classify strength by node kind + claimedBy (no sourceType on GraphNode).
+      const strongerKind = stronger?.kind;
+      const weakerNode = weaker[0]!;
+      const strongerSource = (strongerKind === "fact" || strongerKind === "evidence") ? "canonical" : stronger?.claimedBy;
+      const weakerSource = (weakerNode.kind === "belief" || weakerNode.kind === "claim") ? weakerNode.claimedBy ?? "mythos" : weakerNode.kind;
+      return [{
+        factId: c.factId,
+        report: c.report,
+        strongerSource,
+        weakerSource,
+      }];
+    }),
     openLeads: pi.openLeads.map((l) => ({ factId: l.factId, label: l.label, degree: l.degree })),
   };
 }
@@ -363,6 +383,21 @@ export interface InvestigationPayload {
   }[];
   visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
   openLeads: { factId: string; label: string; degree: number }[];
+  /**
+   * ADR-014 Phase C — first-class divergence alerts. Subset of
+   * visibleContradictions where a stronger (canonical / Tier-0) claim is in
+   * tension with a weaker (mythos / Tier-2) reconstruction claim. Actionable:
+   * the player can re-read the source or challenge the claim. Epistemic-framed,
+   * never asserts world-truth.
+   */
+  divergenceAlerts: {
+    factId: string;
+    report: string;
+    /** the stronger claim's source type, when known. */
+    strongerSource?: string;
+    /** the weaker claim's source type, when known. */
+    weakerSource?: string;
+  }[];
 }
 
 /**
@@ -433,6 +468,18 @@ export function aggregateInvestigation(states: WorldState[]): InvestigationPaylo
   }
   const openLeads = [...leadMap.values()].sort((a, b) => b.degree - a.degree);
 
+  // Divergence alerts union (keyed by factId + report), tagged by timeline.
+  const alertMap = new Map<string, { factId: string; report: string; strongerSource?: string; weakerSource?: string; timelines: string[] }>();
+  for (let i = 0; i < per.length; i++) {
+    for (const a of per[i].divergenceAlerts) {
+      const key = `${a.factId}::${a.report}`;
+      const existing = alertMap.get(key);
+      if (!existing) alertMap.set(key, { ...a, timelines: [timelines[i]] });
+      else if (!existing.timelines.includes(timelines[i])) existing.timelines.push(timelines[i]);
+    }
+  }
+  const divergenceAlerts = [...alertMap.values()];
+
   return {
     episodeId: "all",
     timelines,
@@ -440,6 +487,7 @@ export function aggregateInvestigation(states: WorldState[]): InvestigationPaylo
     discovered,
     corroboration,
     visibleContradictions,
+    divergenceAlerts,
     openLeads,
   };
 }

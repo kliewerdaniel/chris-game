@@ -16,4 +16,11 @@ export interface InvestigationPayload {
   }[];
   visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
   openLeads: { factId: string; label: string; degree: number }[];
+  /** ADR-014 Phase C — actionable divergence alerts (canonical ⊣ mythos tension). */
+  divergenceAlerts: {
+    factId: string;
+    report: string;
+    strongerSource?: string;
+    weakerSource?: string;
+  }[];
 }

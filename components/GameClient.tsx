@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import type { WorldState, NarrationLine, Evidence, GameAction } from "../lib/core/types";
 import {
   TravelJournal,
@@ -25,6 +26,13 @@ import {
   Toast,
   TabBar,
 } from "./GameShell";
+
+// ADR-014 Phase B: the R3F reconstruction visual is client-only (Three.js).
+// No SSR — dynamic import with `ssr: false` so the canvas never renders server-side.
+const ReconstructionScene = dynamic(() => import("./ReconstructionScene"), {
+  ssr: false,
+  loading: () => <div className="recon-loading">assembling reconstruction…</div>,
+});
 
 const SAVE_KEY = "chris-game-save-v2";
 
@@ -83,6 +91,7 @@ export function GameClient() {
   const [epMeta, setEpMeta] = useState<EpisodeMeta | null>(null);
   const [board, setBoard] = useState<InvestigationPayload | null>(null);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [sceneOpen, setSceneOpen] = useState(false);
   const [journal, setJournal] = useState<TravelJournal>(createJournal());
   const [viewingLive, setViewingLive] = useState(true);
   const [voiceOn, setVoiceOn] = useState(false);
@@ -644,6 +653,19 @@ export function GameClient() {
           if (state) void refreshBoard(state);
         }}
       />
+
+      <button
+        type="button"
+        className={`asbtn scene-toggle${sceneOpen ? " active" : ""}`}
+        onClick={() => setSceneOpen((v) => !v)}
+        title="Toggle the reconstruction visual"
+      >
+        {sceneOpen ? "hide reconstruction" : "show reconstruction"}
+      </button>
+
+      {sceneOpen && ws && (
+        <ReconstructionScene ws={ws} />
+      )}
 
       <TravelBar
         journal={journal}
