@@ -113,6 +113,16 @@ describe("GameEngine — deterministic actions", () => {
     expect(state.phoneUnlocked).toBe(true);
     expect(state.contacts[0].reachable).toBe(true);
   });
+
+  it("ADR-014 §5.2 — turn result carries a proactive suggestedNext", async () => {
+    const eng = mockEngine();
+    const s = eng.newGame();
+    // examine the phone surfaces the unresolved lead ep1.mother.knows, so the
+    // engine should suggest it as the next step (no model call, deterministic).
+    const { result } = await eng.processTurn(s, "examine the phone");
+    expect(result.suggestedNext).toBeTruthy();
+    expect(result.suggestedNext?.factId).toBe("ep1.mother.knows");
+  });
 });
 
 describe("Model cannot mutate canonical world state", () => {

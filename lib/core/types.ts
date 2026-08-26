@@ -330,6 +330,13 @@ export interface ActionResult {
   establishedFacts?: string[];
   /** state changes applied (for tests/debug). */
   stateChanges?: Record<string, unknown>;
+  /**
+   * ADR-014 §5.2 auto-prompt — the engine's proactive next-step suggestion for
+   * the player, derived deterministically from the post-turn investigation
+   * board (highest-centrality open lead). Purely a suggestion; the engine never
+   * asserts an answer. null when the player has no open leads (endgame).
+   */
+  suggestedNext?: { factId: string; label: string; degree: number } | null;
 }
 
 export type Speaker = "narrator" | "chris" | "system" | "player" | "evidence";

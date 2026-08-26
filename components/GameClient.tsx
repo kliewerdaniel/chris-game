@@ -101,6 +101,11 @@ export function GameClient() {
   const ttsEnabled = process.env.NEXT_PUBLIC_TTS_ENABLED === "1";
   const [mobileTab, setMobileTab] = useState<"world" | "board" | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  // ADR-014 §5.2 auto-prompt — proactive next-step nudge on the main surface.
+  // Holds the engine's suggestion (factId + label) so the player sees it without
+  // opening the Board. Cleared when there's nothing to suggest or it's unchanged.
+  const [nextHint, setNextHint] = useState<{ factId: string; label: string } | null>(null);
+  const lastHintRef = useRef<string | null>(null);
   const [confirmNew, setConfirmNew] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
@@ -594,6 +599,18 @@ export function GameClient() {
       const meta: EpisodeMeta = { id: ep.id, title: ep.title, subtitle: ep.subtitle, index: ep.index };
       setEpMeta(meta);
 
+      // ADR-014 §5.2 auto-prompt — surface the engine's next-step suggestion on
+      // the main play surface. Only re-show when it actually changed (don't
+      // nag with a stale nudge the player already sees).
+      const sug = result.suggestedNext;
+      if (sug && sug.factId !== lastHintRef.current) {
+        setNextHint({ factId: sug.factId, label: sug.label });
+        lastHintRef.current = sug.factId;
+      } else if (!sug) {
+        setNextHint(null);
+        lastHintRef.current = null;
+      }
+
       const newLog = [...currentLog, ...result.narration];
       setLog(newLog);
 
@@ -747,6 +764,20 @@ export function GameClient() {
         affordance={affordance}
         modeHint="look · talk · ask · examine · confront · help"
       />
+
+      {nextHint && (
+        <div className="next-hint" role="status" aria-live="polite">
+          <span className="next-hint-label">▸ SUGGESTED NEXT</span>
+          <span className="next-hint-text">{nextHint.label}</span>
+          <button
+            type="button"
+            className="next-hint-btn"
+            onClick={() => nextHint.factId && challengeClaim(nextHint.factId)}
+          >
+            investigate
+          </button>
+        </div>
+      )}
 
       <Toast toast={toast} />
       <TabBar

@@ -609,6 +609,44 @@ button:disabled { cursor: not-allowed; }
   opacity: 0.85;
 }
 
+/* ADR-014 §5.2 auto-prompt — proactive next-step nudge on the main surface */
+.next-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 auto;
+  max-width: 760px;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: rgba(200, 162, 74, 0.06);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.next-hint-label {
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.next-hint-text { color: var(--ink); flex: 1 1 auto; }
+.next-hint-btn {
+  flex: 0 0 auto;
+  background: var(--accent-soft);
+  color: #1a1409;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--motion) var(--ease);
+}
+.next-hint-btn:hover { background: var(--accent); }
+
 /* hint cycling affordance under the input */
 .input-modes {
   font-family: var(--font-mono);

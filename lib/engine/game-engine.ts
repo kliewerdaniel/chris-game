@@ -21,6 +21,7 @@ import { EPISODE2 } from "./episode2";
 import { EPISODE3 } from "./episode3";
 import { EPISODE4 } from "./episode4";
 import { applyWorldEvents } from "./world-events";
+import { buildInvestigationPayload } from "../core/investigation";
 
 export const EPISODES: Record<string, Episode> = {
   ep1: EPISODE1,
@@ -172,7 +173,21 @@ export class GameEngine {
       }
     }
 
-    return { state: next, result, action };
+    return { state: next, result: this.withSuggestion(result, next), action };
+  }
+
+  /**
+   * ADR-014 §5.2 auto-prompt — derive the proactive next-step suggestion from
+   * the post-turn board and attach it to the result. Deterministic, derived
+   * from existing WorldState (buildInvestigationPayload), no model call, no
+   * world-truth assertion. The UI surfaces it as a nudge; it is the same field
+   * the Consistency Board already renders.
+   */
+  private withSuggestion(
+    result: ActionResult,
+    state: WorldState
+  ): ActionResult {
+    return { ...result, suggestedNext: buildInvestigationPayload(state).suggestedNext };
   }
 
   /**
@@ -226,7 +241,7 @@ export class GameEngine {
       }
     }
 
-    return { state: next, result, action };
+    return { state: next, result: this.withSuggestion(result, next), action };
   }
 
   private engineApi() {

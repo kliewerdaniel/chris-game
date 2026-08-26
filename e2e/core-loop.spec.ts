@@ -199,6 +199,37 @@ test("suggested-next nudge drives the player's investigation", async ({ page }) 
   expect(logAfter).toBeGreaterThan(logBefore);
 });
 
+// ADR-014 §5.2 auto-prompt on the MAIN surface — the engine's proactive
+// suggestion shows inline (not only inside the Board) and its "investigate"
+// button drives the same challenge loop.
+test("main-surface auto-prompt nudge drives the player's investigation", async ({ page }) => {
+  await page.goto("/");
+
+  const input = page.locator(".inputbar input");
+  await expect(input).toBeVisible();
+  await input.fill("examine the phone");
+  await page.locator(".inputbar button").click();
+  const ack = page.locator(".chat-disclosure button");
+  if (await ack.count()) {
+    await ack.click();
+    await input.fill("examine the phone");
+    await page.locator(".inputbar button").click();
+  }
+  await expect(page.locator(".ev-item").first()).toBeVisible({ timeout: 20_000 });
+
+  // The nudge renders on the main play surface (below the input), not just in the Board.
+  const hint = page.locator(".next-hint");
+  await expect(hint).toBeVisible({ timeout: 10_000 });
+  const hintBtn = hint.locator(".next-hint-btn");
+  await expect(hintBtn).toBeVisible();
+
+  const logBefore = await page.locator(".line").count();
+  await hintBtn.click();
+  await expect(page.locator(".line.player", { hasText: "you challenge" }).first()).toBeVisible({ timeout: 10_000 });
+  const logAfter = await page.locator(".line").count();
+  expect(logAfter).toBeGreaterThan(logBefore);
+});
+
 test("open leads drive the player: clicking 'investigate' runs the challenge loop", async ({ page }) => {
   await page.goto("/");
 
