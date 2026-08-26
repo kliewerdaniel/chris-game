@@ -339,9 +339,18 @@ export function CaseFile(props: {
                 <div className="board-section">
                   <div className="board-label">OPEN LEADS ({board.openLeads.length})</div>
                   {board.openLeads.map((l) => (
-                    <div key={l.factId} className="board-row lead">
+                    <div key={l.factId} className={`board-row lead${onChallengeClaim ? " clickable" : ""}`}>
                       <span className="dot" />
                       <span className="board-text">{l.label}</span>
+                      {onChallengeClaim && (
+                        <button
+                          type="button"
+                          className="board-challenge lead-challenge"
+                          onClick={() => onChallengeClaim(l.factId)}
+                        >
+                          investigate
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

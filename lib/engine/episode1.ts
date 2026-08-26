@@ -269,6 +269,11 @@ function doExamine(s: WorldState, a: GameAction): { state: WorldState; result: A
       next = { ...next, phoneUnlocked: true };
       const ev = markDiscovered(instantiateEvidence("ev_phone"));
       next = discoverEvidence(next, ev);
+      // Per the docudrama, Mother's exact knowledge of the feed is genuinely
+      // unresolved (fact status "unknown"). Surfacing it as a *known* lead lets
+      // the Consistency Board drive the player to probe it — content-only, no
+      // engine-logic change.
+      next = addKnownFact(next, "ep1.mother.knows");
       next = { ...next, contacts: next.contacts.map((c) => ({ ...c, reachable: true })) };
       discovered.push(ev);
       text =

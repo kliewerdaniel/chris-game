@@ -538,6 +538,10 @@ button:disabled { cursor: not-allowed; }
   transition: background 0.15s ease, color 0.15s ease;
 }
 .board-challenge:hover { background: var(--accent); color: var(--bg); }
+.board-row.lead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.board-row.lead.clickable { cursor: default; }
+.board-row.lead .board-text { flex: 1 1 auto; }
+.lead-challenge { margin-top: 0; flex: 0 0 auto; }
 .recon-detail-challenge { margin-top: var(--sp-3); }
 .continue-btn {
   margin-top: var(--sp-4);

@@ -168,3 +168,39 @@ test("claim-driven challenge: clicking a claim runs the engine challenge loop", 
   const logAfter = await page.locator(".line").count();
   expect(logAfter).toBeGreaterThan(logBefore);
 });
+
+// ADR-014 §5.2 deeper cut — the Consistency Board no longer merely reports open
+// leads; it DRIVES the player. Each open lead exposes an "investigate" button
+// that fires the same engine challenge loop as a divergence alert.
+test("open leads drive the player: clicking 'investigate' runs the challenge loop", async ({ page }) => {
+  await page.goto("/");
+
+  // Get some state on the board — examining the phone surfaces the genuinely
+  // unresolved "Mother's knowledge" fact as an open lead the Board can drive.
+  const input = page.locator(".inputbar input");
+  await expect(input).toBeVisible();
+  await input.fill("examine the phone");
+  await page.locator(".inputbar button").click();
+  const ack = page.locator(".chat-disclosure button");
+  if (await ack.count()) {
+    await ack.click();
+    await input.fill("examine the phone");
+    await page.locator(".inputbar button").click();
+  }
+  await expect(page.locator(".ev-item").first()).toBeVisible({ timeout: 20_000 });
+
+  // Open the Consistency Board.
+  await page.locator(".asbtn", { hasText: "board" }).click();
+  const leads = page.locator(".board-row.lead");
+  await expect(leads.first()).toBeVisible({ timeout: 10_000 });
+  const leadBtn = leads.first().locator(".lead-challenge");
+  await expect(leadBtn).toBeVisible({ timeout: 10_000 });
+
+  const logBefore = await page.locator(".line").count();
+  await leadBtn.click();
+  // The open-lead "investigate" affordance routes through the engine and
+  // records a challenge into the log — proving the report now drives play.
+  await expect(page.locator(".line.player", { hasText: "you challenge" }).first()).toBeVisible({ timeout: 10_000 });
+  const logAfter = await page.locator(".line").count();
+  expect(logAfter).toBeGreaterThan(logBefore);
+});
