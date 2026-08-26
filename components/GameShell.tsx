@@ -230,7 +230,7 @@ export function NarrativeLog(props: {
   onPlay: (i: number) => void;
   onStop: (i: number) => void;
   onAdvance: () => void;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   onScroll: () => void;
 }) {
   const { log, tts, ws, meta, busy, onPlay, onStop, onAdvance, scrollRef, onScroll } = props;
@@ -539,7 +539,7 @@ export function CommandInput(props: {
   onChange: (v: string) => void;
   onSend: () => void;
   onKey: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   affordance?: string;
   modeHint?: string;
 }) {
