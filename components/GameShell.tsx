@@ -268,6 +268,32 @@ export function NarrativeLog(props: {
 // CaseFile (right rail) — the detective's marginalia: world facts, evidence,
 // established facts, and a collapsed command affordance.
 // ---------------------------------------------------------------------------
+export function Ledger(props: { established: string[] }) {
+  const { established } = props;
+  if (established.length === 0) {
+    return <div className="empty">No facts established yet.</div>;
+  }
+  return (
+    <div className="ledger">
+      {established.map((id, i) => {
+        const f = getFact(id);
+        if (!f) return <div className="fact-item" key={i}><span>{id}</span></div>;
+        return (
+          <div className="fact-item" key={i}>
+            <div className="ledger-stmt">
+              <span>{f.statement}</span>
+              {f.status && (
+                <span className={`status-tag ${statusClass(f.status)}`}>{statusLabel(f.status)}</span>
+              )}
+            </div>
+            {f.provenance?.source && <div className="src">{f.provenance.source}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CaseFile(props: {
   boardOpen: boolean;
   board: InvestigationPayload | null;
@@ -386,17 +412,8 @@ export function CaseFile(props: {
         </div>
       ))}
 
-      <div className="section-title">Established</div>
-      {established.length === 0 && <div className="empty">No facts established yet.</div>}
-      {established.map((id, i) => {
-        const f = getFact(id);
-        return (
-          <div className="fact-item" key={i}>
-            <span>{f ? f.statement : id}</span>
-            {f && f.provenance && <span className="src">{f.provenance.sourceType}</span>}
-          </div>
-        );
-      })}
+      <div className="section-title">Ledger</div>
+      <Ledger established={established} />
 
       <div className="section-title">What You Can Do</div>
       <button type="button" className="help-toggle" onClick={onToggleHelp} aria-expanded={helpOpen}>

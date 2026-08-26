@@ -377,6 +377,27 @@ button:disabled { cursor: not-allowed; }
   margin-top: 3px;
 }
 
+/* ---- epistemic ledger (ADR-013): established facts shown with status
+   chip + provenance source, so the honesty structure is legible ---- */
+.ledger .ledger-stmt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.ledger .ledger-stmt > span:first-child { flex: 1 1 auto; }
+.ledger .status-tag {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+/* provenance as a faint diegetic sentence (not an uppercased code tag) */
+.ledger .fact-item .src {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .empty {
   color: var(--ink-faint);
   font-style: italic;
