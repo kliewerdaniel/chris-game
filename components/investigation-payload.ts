@@ -16,6 +16,8 @@ export interface InvestigationPayload {
   }[];
   visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
   openLeads: { factId: string; label: string; degree: number }[];
+  /** ADR-014 §5.2 auto-prompt — the Board's proactive suggestion (top open lead). */
+  suggestedNext: { factId: string; label: string; degree: number } | null;
   /** ADR-014 Phase C — actionable divergence alerts (canonical ⊣ mythos tension). */
   divergenceAlerts: {
     factId: string;

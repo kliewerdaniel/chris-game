@@ -360,6 +360,12 @@ export function buildInvestigationPayload(state: WorldState) {
       }];
     }),
     openLeads: pi.openLeads.map((l) => ({ factId: l.factId, label: l.label, degree: l.degree })),
+    // ADR-014 §5.2 auto-prompt: the highest-centrality open lead becomes the
+    // Board's proactive suggestion. Derived data only — no engine-logic change,
+    // and the field is additive on the payload contract.
+    suggestedNext: pi.openLeads[0]
+      ? { factId: pi.openLeads[0].factId, label: pi.openLeads[0].label, degree: pi.openLeads[0].degree }
+      : null,
   };
 }
 
@@ -383,6 +389,12 @@ export interface InvestigationPayload {
   }[];
   visibleContradictions: { factId: string; report: string; claimLabels: string[]; timelines?: string[] }[];
   openLeads: { factId: string; label: string; degree: number }[];
+  /**
+   * ADR-014 §5.2 auto-prompt — the Board's proactive suggestion: the
+   * highest-centrality open lead (or null when none). The UI surfaces this as a
+   * "suggested next" nudge the player can act on; never an assertion.
+   */
+  suggestedNext: { factId: string; label: string; degree: number } | null;
   /**
    * ADR-014 Phase C — first-class divergence alerts. Subset of
    * visibleContradictions where a stronger (canonical / Tier-0) claim is in
@@ -489,6 +501,7 @@ export function aggregateInvestigation(states: WorldState[]): InvestigationPaylo
     visibleContradictions,
     divergenceAlerts,
     openLeads,
+    suggestedNext: openLeads[0] ?? null,
   };
 }
 

@@ -169,9 +169,36 @@ test("claim-driven challenge: clicking a claim runs the engine challenge loop", 
   expect(logAfter).toBeGreaterThan(logBefore);
 });
 
-// ADR-014 §5.2 deeper cut — the Consistency Board no longer merely reports open
-// leads; it DRIVES the player. Each open lead exposes an "investigate" button
-// that fires the same engine challenge loop as a divergence alert.
+// ADR-014 §5.2 auto-prompt — the Board surfaces a proactive "SUGGESTED NEXT"
+// nudge from the top open lead; clicking it drives the same challenge loop.
+test("suggested-next nudge drives the player's investigation", async ({ page }) => {
+  await page.goto("/");
+
+  const input = page.locator(".inputbar input");
+  await expect(input).toBeVisible();
+  await input.fill("examine the phone");
+  await page.locator(".inputbar button").click();
+  const ack = page.locator(".chat-disclosure button");
+  if (await ack.count()) {
+    await ack.click();
+    await input.fill("examine the phone");
+    await page.locator(".inputbar button").click();
+  }
+  await expect(page.locator(".ev-item").first()).toBeVisible({ timeout: 20_000 });
+
+  await page.locator(".asbtn", { hasText: "board" }).click();
+  const suggest = page.locator(".board-section.suggest");
+  await expect(suggest).toBeVisible({ timeout: 10_000 });
+  const suggestBtn = suggest.locator(".lead-challenge");
+  await expect(suggestBtn).toBeVisible();
+
+  const logBefore = await page.locator(".line").count();
+  await suggestBtn.click();
+  await expect(page.locator(".line.player", { hasText: "you challenge" }).first()).toBeVisible({ timeout: 10_000 });
+  const logAfter = await page.locator(".line").count();
+  expect(logAfter).toBeGreaterThan(logBefore);
+});
+
 test("open leads drive the player: clicking 'investigate' runs the challenge loop", async ({ page }) => {
   await page.goto("/");
 

@@ -335,6 +335,23 @@ export function CaseFile(props: {
             <div className="empty">No data yet.</div>
           ) : (
             <div className="board-body">
+              {board.suggestedNext && (
+                <div className="board-section suggest">
+                  <div className="board-label suggest-label">SUGGESTED NEXT</div>
+                  <div className="board-row suggest-row">
+                    <span className="board-text">{board.suggestedNext.label}</span>
+                    {onChallengeClaim && (
+                      <button
+                        type="button"
+                        className="board-challenge lead-challenge"
+                        onClick={() => onChallengeClaim(board.suggestedNext!.factId)}
+                      >
+                        investigate
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               {board.openLeads?.length > 0 && (
                 <div className="board-section">
                   <div className="board-label">OPEN LEADS ({board.openLeads.length})</div>
