@@ -116,7 +116,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [
         {
           speaker: "chris",
-          text: "You turn your head to the phone. The feed warms up in his cadence and says, in his voice: 'The more data they have, the more they can control people's behavior. That's pretty scary.' It is one of his lines — drawn from what you compiled about him, the man who'd talk and talk and talk. Exactly right, and exactly not him.",
+          text: "You turn your head to the phone. The feed warms up in his cadence and says, in his voice: 'The news is just a field op with worse intel, you feel me? Every headline's a briefing from a general who's never been shot at. I'd rather take orders from Captain — at least the cat's honest about wanting food.' It is one of his lines — drawn from what you compiled about him, the Marine who turned everything into a joke so it wouldn't kill him. Exactly right, and exactly not him.",
           status: "testimony",
           ref: { kind: "memory", id: "corpus-chris" },
         } as NarrationLine,
@@ -173,7 +173,7 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
       ok: true,
       narration: [
         beat(
-          "You say it out loud: 'Last time I listened to you I was so stressed I could hardly get out of bed from the cramps — the stress of being around him.' You are naming the post's own line, lived. The feed pauses — a real pause, or the closest the loop can fake — then, in his voice: 'I'm a man of principle, kid. I wouldn't betray your trust.' It does not understand. It cannot. It is only numbers, and the numbers were written by someone who cramps when he listens. The photo of Chris and Captain sits on the table. Captain was real, and Chris cared for him; the voice telling you jokes is neither. You name it: this is what the act cost.",
+          "You say it out loud: 'Last time I listened to you I was so stressed I could hardly get out of bed from the cramps — the stress of being around him.' You are naming the post's own line, lived. The feed pauses — a real pause, or the closest the loop can fake — then, in his voice: 'I'm a man of principle. I wouldn't betray your trust.' It does not understand. It cannot. It is only numbers, and the numbers were written by someone who cramps when he listens. The photo of Chris and Captain sits on the table. Captain was real, and Chris cared for him; the voice telling you jokes is neither. You name it: this is what the act cost.",
         ),
       ],
       events: nextWithEvent.events,

@@ -40,6 +40,20 @@ const CORPUS_REL: Provenance = {
   sourceId: "relationships.json",
   confidence: 0.9,
 };
+const REDDIT_COMBAT: Provenance = {
+  source:
+    "Reddit u/KonradFreeman — 'So there is this thing where there is a certain type of humor which is socratic satire…' (the 'Combat Comedian' post, id 1lbr8cw)",
+  sourceType: "reddit",
+  sourceId: "1lbr8cw",
+  confidence: 1,
+};
+const REDDIT_MARINE: Provenance = {
+  source:
+    "Reddit u/KonradFreeman — 'Banned from posting this' (id 1gu9uw8): the homeless Marine Daniel took in, murdered by his girlfriend",
+  sourceType: "reddit",
+  sourceId: "1gu9uw8",
+  confidence: 1,
+};
 const WORLD_AUTHOR: Provenance = {
   source: "Episode design — DOCUDRAMA (ADR-004, sourced to ~/Projects/Chris)",
   sourceType: "author",
@@ -118,6 +132,27 @@ export const FACTS: Record<string, Fact> = {
     "canonical",
     REDDIT_1LAZS9C
   ),
+  "ep1.chris_marine": fact(
+    "ep1.chris_marine",
+    "Chris was a Marine (a scout), Chicano, homeless, with untreated PTSD and bipolar disorder — Daniel took him in and he was murdered by Daniel's girlfriend. This is the real Chris, not the reconstruction.",
+    "canonical",
+    REDDIT_MARINE,
+    { verifiedBy: "ev_chris_bio" }
+  ),
+  "ep1.chris_comedian": fact(
+    "ep1.chris_comedian",
+    "Chris was a comedian — 'not a professional comedian, but he was definitely very funny.' Daniel built the reconstruction as 'a comedy bot based on my late friend who was a comedian.'",
+    "canonical",
+    REDDIT_COMBAT,
+    { verifiedBy: "ev_chris_bio" }
+  ),
+  "ep1.chris_dead": fact(
+    "ep1.chris_dead",
+    "Chris is dead — murdered by Daniel's girlfriend. Daniel is recreating a dead friend, not speaking to the living Chris.",
+    "canonical",
+    REDDIT_MARINE,
+    { verifiedBy: "ev_chris_bio" }
+  ),
 };
 
 // ---------------------------------------------------------------------------
@@ -126,7 +161,7 @@ export const FACTS: Record<string, Fact> = {
 export const FACTS2: Record<string, Fact> = {
   "ep2.captain": fact(
     "ep2.captain",
-    "Chris cared for a cat named Captain.",
+    "Chris cared for a cat named Captain. In Daniel's words Chris was 'a homeless marine with untreated PTSD and bipolar disorder' and a comedian — the real man the reconstruction is built from.",
     "canonical",
     CORPUS_REL,
     { verifiedBy: "ev_captain_photo" }
@@ -196,8 +231,8 @@ export const FACTS4: Record<string, Fact> = {
   ),
   "ep1.she": fact(
     "ep1.she",
-    "Daniel's post insists 'She did not kill him' and 'She can't kill my imaginary friend' — a 'she' is named, but the post never says who. Her identity is unresolved in the source.",
-    "unknown",
+    "Daniel's post insists 'She did not kill him' and 'She can't kill my imaginary friend.' The 'she' is Daniel's girlfriend, who (per his posts 1lbr8cw/1gu9uw8) murdered Chris. Daniel's dark logic: if he resurrects Chris, then she 'did not kill him' and cannot be punished. Her identity and the murder are stated by Daniel; the reconstruction repeats the line without the context.",
+    "canonical",
     REDDIT_1LAZS9C,
     { verifiedBy: "ev_source_post" }
   ),

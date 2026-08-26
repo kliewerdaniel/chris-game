@@ -177,7 +177,7 @@ export class CharacterEngine {
         return {
           mode: "deflect",
           topic,
-          seed: "Chris shakes his head, quiet. \"We're not doing this right now, kid.\"",
+          seed: "Chris shakes his head, quiet. \"We're not doing this right now.\"",
           why: "recently confronted + sensitive + trust>=gate → deflect",
         };
       }
@@ -217,7 +217,7 @@ export class CharacterEngine {
       return {
         mode: "withhold",
         topic,
-        seed: "Chris just shakes his head. \"Drop it, kid.\"",
+        seed: "Chris just shakes his head. \"Drop it. Some things aren't yours to carry tonight.\"",
         why: "topic in withheld → withhold",
       };
     }

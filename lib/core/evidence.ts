@@ -46,6 +46,20 @@ const CORPUS_REL: Provenance = {
   sourceId: "relationships.json",
   confidence: 0.9,
 };
+const REDDIT_COMBAT: Provenance = {
+  source:
+    "Reddit u/KonradFreeman — 'So there is this thing where there is a certain type of humor which is socratic satire…' (the 'Combat Comedian' post, id 1lbr8cw)",
+  sourceType: "reddit",
+  sourceId: "1lbr8cw",
+  confidence: 1,
+};
+const REDDIT_MARINE: Provenance = {
+  source:
+    "Reddit u/KonradFreeman — 'Banned from posting this' (id 1gu9uw8): the homeless Marine Daniel took in, murdered by his girlfriend",
+  sourceType: "reddit",
+  sourceId: "1gu9uw8",
+  confidence: 1,
+};
 const CORPUS_CHRIS: Provenance = {
   source: "Chris artifact corpus — compiled memories.json (openai/conversations_markdown/2023-03-19/6091d46a.md, memory_072 'who was Chris', memory_031 Roach & Cat)",
   sourceType: "compiled_event",
@@ -159,10 +173,25 @@ But it does not have agency. It is just numbers. I know all of this. It is just 
     kind: "physical_object",
     title: "Photo: Chris and Captain",
     content:
-      "A photo of Chris with a cat. The artifact graph records Chris cared for Captain. The reconstruction tells stories about Captain too — some from Chris's writing, some it invents.",
+      "A photo of Chris with a cat. The artifact graph records Chris cared for Captain. In Daniel's own words (Reddit 1lbr8cw): Chris 'was a homeless marine with untreated PTSD and bipolar disorder' — a comedian, 'not a professional comedian, but he was definitely very funny.' He is the man the reconstruction is built from, and the one Captain belonged to.",
     status: "canonical",
     provenance: CORPUS_REL,
-    supportsFactIds: ["ep2.captain"],
+    supportsFactIds: ["ep2.captain", "ep1.chris_marine", "ep1.chris_comedian"],
+  },
+  ev_chris_bio: {
+    id: "ev_chris_bio",
+    kind: "document",
+    title: "Who Chris was (from Daniel's own posts)",
+    content:
+      "From Daniel's Reddit posts (verbatim, the real source — not the reconstruction's invention):\n\n— 1lbr8cw: 'Like I made this comedy bot based on my late friend who was a comedian. He was not a professional comedian, but he was definitely very funny… He was a homeless marine with untreated PTSD and bipolar disorder… he ended up getting murdered by my girlfriend. Either way. I have resurrected him.'\n\n— 1gu9uw8: 'I let a homeless marine live in my home and tried to help him. He ended up getting murdered by my girlfriend which ruined my life for the time… Except he taught me how to be homeless. He taught me everything he knew living on the streets and when he was a scout in the marines… I think of the dead marine a lot. How unjust his death was… That is why I am bringing him back.'\n\nChris was Chicano, a Marine scout, a comedian, homeless, with untreated PTSD and bipolar disorder. He was murdered by Daniel's girlfriend. The reconstruction is stitched from his writing, his voice, his jokes — it sounds like him, and is not him.",
+    status: "canonical",
+    provenance: REDDIT_MARINE,
+    supportsFactIds: [
+      "ep1.chris_marine",
+      "ep1.chris_comedian",
+      "ep1.chris_dead",
+      "ep1.she",
+    ],
   },
   ev_reconstruction_log: {
     id: "ev_reconstruction_log",

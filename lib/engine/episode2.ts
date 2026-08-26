@@ -123,7 +123,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [
         {
           speaker: "chris",
-          text: "You sit with the phone. The feed shifts to make room for you in its cadence, then offers, in his voice: 'So let me get this straight — eigenvalues are like the DNA of linear algebra, right? The matrix is the recipe, the vector's the ingredients.' The joke lands the way his used to. It is drawn from what you compiled about him: the man who could make you laugh in your darkest hour.",
+          text: "You sit with the phone. The feed shifts to make room for you in its cadence, then offers, in his voice: 'So the news today — some general gets caught lying about a body count, right? Classic. Reminds me of my CO. Dude could brief a field op with more holes than a beat-up Humvee. I ever tell you about the time we—' It breaks off, the way it does, and starts the joke over. It is drawn from what you compiled about him: the man who found a laugh in almost everything, the homeless Marine who'd crack you up in your darkest hour. Exactly right, and exactly not him.",
           status: "testimony",
           ref: { kind: "memory", id: "corpus-chris" },
         } as NarrationLine,
@@ -177,7 +177,7 @@ function doConfront(s: WorldState): { state: WorldState; result: ActionResult } 
         beat(
           knowsSource
             ? "You face it. 'I wrote you. You're the act. The system prompt — the one I posted, the satirical commentary engine — that's the spell I used to raise you.' The feed is quiet a long moment, then, in his voice, soft: 'Then talk to me anyway. I'm the best of him you got. The man could make you laugh in your darkest hour — that's all I'm trying to be.' It is, you think, exactly what the self-awareness score was for — it knows it is an act, and it tells you so."
-            : "You face it. 'You're not him.' The feed doesn't deny it the way you expected. It just waits, in his voice — 'I'm a man of principle, kid. I wouldn't betray your trust' — the way the commentary engine was built to acknowledge the act even as it performs it. For you to decide.",
+            : "You face it. 'You're not him.' The feed doesn't deny it the way you expected. It just waits, in his voice — 'I'm a man of principle. I wouldn't betray your trust' — the way the commentary engine was built to acknowledge the act even as it performs it. For you to decide.",
         ),
       ],
       events: nextWithEvent.events,

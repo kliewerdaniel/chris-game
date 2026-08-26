@@ -293,11 +293,11 @@ export class Narrator {
     } else if (ctx.handling === "withhold") {
       line = {
         speaker: "chris",
-        text: "Chris just shakes his head. \"Drop it, kid. Some things aren't yours to carry tonight.\"",
+        text: "Chris just shakes his head. \"Drop it. Some things aren't yours to carry tonight.\"",
         status: "testimony",
       };
     } else if (ctx.handling === "deflect") {
-      line = { speaker: "chris", text: "Chris shakes his head. \"We're not doing this right now, kid.\"", status: "testimony" };
+      line = { speaker: "chris", text: "Chris shakes his head. \"We're not doing this right now.\"", status: "testimony" };
     } else if (ctx.handling === "threaten") {
       line = {
         speaker: "chris",

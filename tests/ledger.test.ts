@@ -16,12 +16,17 @@ describe("Epistemic Ledger (ADR-013)", () => {
     expect(html).toContain("Daniel built an AI reconstruction of his dead friend Chris");
     expect(html).toContain(`status-tag ${statusClass("canonical")}`);
     expect(html).toContain("I created a monster");
-    // unknown fact keeps its UNKNOWN chip (honest unresolved thread)
-    expect(html).toContain(`status-tag ${statusClass("unknown")}`);
+    // ep1.she is now grounded in source: Daniel's own posts name the girlfriend who murdered Chris
     expect(html).toContain("She did not kill him");
     // reconstruction-claimed fact surfaces its testimony chip + in-voice provenance
     expect(html).toContain(`status-tag ${statusClass("testimony")}`);
     expect(html).toContain("The reconstruction (in-voice)");
+  });
+
+  it("renders an UNKNOWN fact with its honest unresolved chip", () => {
+    const html = renderToStaticMarkup(h(Ledger, { established: ["ep1.mother.knows"] }));
+    // a fact whose status is unknown shows its UNKNOWN chip (honest unresolved thread)
+    expect(html).toContain(`status-tag ${statusClass("unknown")}`);
   });
 
   it("status label is the uppercase word (color is never the only signal)", () => {

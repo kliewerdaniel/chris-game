@@ -104,7 +104,7 @@ export const CHRIS: CharacterDef = {
     {
       id: "chris.belief.is_chris",
       text:
-        "It is Chris. Who else would sound like this? The kid knows it's me. I'm back, that's all. An echo? Please. I'm standing right here in his voice.",
+        "It is Chris. Who else would sound like this? You know it's me. I'm back, that's all. An echo? Please. I'm standing right here in his voice.",
       confidence: 0.95,
       source: "memory",
       emotionalWeight: 0.9,

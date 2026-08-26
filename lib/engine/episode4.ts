@@ -116,7 +116,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [
         {
           speaker: "chris",
-          text: "You open the channel. The reconstruction warms up in his cadence and says, in his voice: 'Eigenvalues are like the DNA of linear algebra, right? The matrix is the recipe, the vector's the ingredients.' You wrote that line into him — drawn from what you compiled about Chris, the man who could make you laugh in your darkest hour. Too smooth, somehow, and exactly right.",
+          text: "You open the channel. The reconstruction warms up in his cadence and says, in his voice: 'So the algorithm's like a fresh lieutenant — thinks it runs the op, but it's just reading the orders you typed in. You wrote that into me — drawn from what you compiled about Chris, the homeless Marine who'd find the joke in a body bag and a budget cut. Too smooth, somehow, and exactly right.",
           status: "testimony",
           ref: { kind: "memory", id: "corpus-chris" },
         } as NarrationLine,
