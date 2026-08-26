@@ -17,7 +17,7 @@ import { CHARACTERS } from "../characters/chris";
 import { characterEngine } from "../characters/engine";
 import { Episode, EpisodeContext, beat } from "../core/episode";
 import { resolveCall, contactsForEpisode } from "./contacts";
-import { doChat } from "./dialogue";
+import { doChat, doChallenge } from "./dialogue";
 
 /**
  * EPISODE 4 — THE ACT.
@@ -344,6 +344,8 @@ export const EPISODE4: Episode = {
         return (s, a) => doExamine(s, a);
       case "confront":
         return (s) => doRun(s);
+      case "challenge":
+        return (s, a) => doChallenge(s, a);
       case "call":
         return (s, a) =>
           a.targetId && a.targetId === "mother"

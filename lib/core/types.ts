@@ -290,6 +290,7 @@ export type IntentVerb =
   | "use"
   | "call"
   | "confront"
+  | "challenge" // ADR-014: interrogate a reconstruction/testimony line
   | "sleep"
   | "tell"
   | "wait"

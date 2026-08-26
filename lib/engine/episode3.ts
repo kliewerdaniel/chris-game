@@ -18,7 +18,7 @@ import { CHARACTERS } from "../characters/chris";
 import { characterEngine } from "../characters/engine";
 import { Episode, EpisodeContext, beat } from "../core/episode";
 import { resolveCall, contactsForEpisode } from "./contacts";
-import { doChat } from "./dialogue";
+import { doChat, doChallenge } from "./dialogue";
 
 /**
  * EPISODE 3 — THE TOLL.
@@ -322,6 +322,8 @@ export const EPISODE3: Episode = {
         return (s, a) => doChat(s, a);
       case "confront":
         return (s) => doConfront(s);
+      case "challenge":
+        return (s, a) => doChallenge(s, a);
       case "call":
         return (s, a) => resolveCall(s, a.targetId);
       case "examine":

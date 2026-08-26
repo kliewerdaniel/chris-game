@@ -9,7 +9,7 @@ import { Intent, IntentVerb, GameAction } from "../core/types";
  * to parse, because parsing is a state-affecting step and must be deterministic.
  *
  * Verbs supported: look, talk, ask, examine, search, move, use, call, confront,
- * sleep, tell, wait, inventory, evidence, help.
+ * challenge, sleep, tell, wait, inventory, evidence, help.
  */
 
 const VERB_PATTERNS: { verb: IntentVerb; words: string[]; starts?: boolean }[] = [
@@ -22,6 +22,7 @@ const VERB_PATTERNS: { verb: IntentVerb; words: string[]; starts?: boolean }[] =
   { verb: "evidence", words: ["evidence", "notebook", "case file", "show me the evidence"] },
   { verb: "sleep", words: ["sleep", "rest", "lie down", "go to sleep", "get some sleep", "turn in"] },
   { verb: "confront", words: ["confront", "accuse", "call him out", "demand the truth", "tell him the truth"] },
+  { verb: "challenge", words: ["challenge", "cross-examine", "test that claim", "is that true", "that's not real", "that can't be true", "dispute", "question that"] },
   { verb: "call", words: ["call", "dial", "text", "ring"] },
   { verb: "examine", words: ["examine", "look at", "read", "open", "study", "observe", "inspect", "check"] },
   { verb: "search", words: ["search", "rummage", "look through", "go through", "hunt for", "look for", "find"] },
@@ -148,6 +149,7 @@ export function isConfident(action: GameAction): boolean {
     return !!action.targetId;
   }
   if (action.type === "confront") return true;
+  if (action.type === "challenge") return true;
   if (action.type === "call") return !!action.targetId;
   if (action.type === "tell") return true;
   if (action.type === "chat") return true; // ADR-005: free-form, always confident

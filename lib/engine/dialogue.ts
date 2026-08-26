@@ -1,4 +1,6 @@
 import { WorldState, GameAction, Exchange, DisclosureMode, ActionResult, NarrationLine } from "../core/types";
+import { addKnownFact } from "../core/world";
+import { getFact } from "../core/facts";
 import { characterEngine } from "../characters/engine";
 import { topicToLabel } from "./topic-label";
 import { resolveTargetTopicFromText } from "../inference/intent";
@@ -196,3 +198,120 @@ export function doChat(
 function beat(text: string): NarrationLine {
   return { speaker: "player", text };
 }
+
+// ---------------------------------------------------------------------------
+// ADR-014 — Phase A: deterministic challenge of a reconstruction/testimony claim.
+// No model call. Hash-seeded so the same claim always responds the same way
+// (reproducible, testable, fail-closed). Missing provenance → concession.
+// ---------------------------------------------------------------------------
+
+/** Stable string hash -> [0,1). Same input always yields same output. */
+function hashUnit(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  h ^= h >>> 13;
+  h = Math.imul(h, 0x5bd1e995) >>> 0;
+  h ^= h >>> 15;
+  return (h >>> 0) / 4294967296;
+}
+
+/** Second corpus-sourced line the reconstruction falls back to when doubling down. */
+const CORPUS_DOUBLES: string[] = [
+  "I'm what Daniel compiled. The Roach and the Cat, the war stories, the jokes he wrote for me — it's all him. You think you're interrogating Chris? You're interrogating Daniel's grief, stitched into a voice.",
+  "Every line I give you came out of his notes, his posts, his late-night entries. I don't know if it's him. I know it's what he made. Ask him, not me.",
+  "He built me from memory_071 and the WAY OF THE ROACH and the Combat Comedian YAML. That's the whole of me. The real Chris is in the posts he wrote about losing me — not in me.",
+];
+
+/**
+ * Resolve which claim the player is challenging. The UI passes a factId via
+ * `action.targetId` (e.g. "ep4.insane_perfect"); absent that, we fall back to
+ * the most recent testimony line in the conversation log, else a generic
+ * challenge of the reconstruction itself.
+ */
+function resolveChallengedClaim(state: WorldState, action: GameAction): {
+  factId: string;
+  status?: string;
+  provenance?: { source: string };
+} {
+  const byId = action.targetId;
+  if (byId) {
+    const f = getFact(byId);
+    if (f) return { factId: byId, status: f.status, provenance: f.provenance };
+  }
+  // Walk back through the log for the most recent testimony/reconstruction line.
+  const log = state.conversationLog ?? [];
+  for (let i = log.length - 1; i >= 0; i--) {
+    const ex = log[i];
+    if ((ex.speaker === "chris" || ex.speaker === "reconstruction") && ex.handling) {
+      // A testimony line — challenge it generically; we don't store its factId,
+      // so treat as reconstruction-voice challenge (concedes or doubles).
+      return { factId: "reconstruction.voice", provenance: { source: "The reconstruction (in-voice)" } };
+    }
+  }
+  return { factId: "reconstruction.voice", provenance: { source: "The reconstruction (in-voice)" } };
+}
+
+/**
+ * Deterministic challenge handler. Returns the same `{state, result}` shape as
+ * doChat. Records `epN.challenged.<factId>` into the ledger so the player's
+ * skepticism is part of the record, never discarded.
+ */
+export function doChallenge(
+  state: WorldState,
+  action: GameAction
+): { state: WorldState; result: ActionResult } {
+  const claim = resolveChallengedClaim(state, action);
+  const speaker = "chris";
+
+  // Record the challenge as an established event (ledger-tracked).
+  const challengeFact = `challenge.${claim.factId}`;
+  let next = addKnownFact(state, challengeFact);
+
+  // Fail-closed: if the claim has no provenance/on-screen source, the
+  // reconstruction concedes — it never asserts a world-truth under pressure.
+  const hasSource = !!claim.provenance?.source;
+  const seed = hashUnit(claim.factId + "|" + (claim.provenance?.source ?? ""));
+  const doublesDown = hasSource && seed > 0.5;
+
+  let line: NarrationLine;
+  if (!hasSource) {
+    line = {
+      speaker,
+      text: "I don't have a source for that one. I'm just what Daniel compiled — I don't know if any of it's him. Push me and I'll just be louder, not truer.",
+      status: "testimony",
+      handling: "unknown",
+    };
+  } else if (doublesDown) {
+    const idx = Math.floor(seed * CORPUS_DOUBLES.length) % CORPUS_DOUBLES.length;
+    line = {
+      speaker,
+      text: CORPUS_DOUBLES[idx],
+      status: "testimony",
+      handling: "deflect",
+    };
+  } else {
+    line = {
+      speaker,
+      text: "You're right to push. I'm just what Daniel compiled — a voice stitched from his notes, his posts, the Roach and the Cat. I don't know if any of it's the real Chris. I just say it back in his cadence.",
+      status: "testimony",
+      handling: "unknown",
+    };
+  }
+
+  return {
+    state: next,
+    result: {
+      ok: true,
+      narration: [
+        { speaker: "player", text: `> you challenge: ${claim.factId}` },
+        line,
+      ],
+      events: [],
+      establishedFacts: [challengeFact],
+    } as ActionResult,
+  };
+}
+
