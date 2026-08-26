@@ -357,6 +357,56 @@ button:disabled { cursor: not-allowed; }
   line-height: 1.55;
   word-break: break-word;
 }
+.ev-item { cursor: pointer; transition: background 0.15s ease; }
+.ev-item:hover { background: var(--bg-elevated); }
+.ev-item.expanded { background: var(--bg-elevated); }
+.ev-item .t {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.ev-status-pill {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  color: var(--muted-foreground);
+}
+.ev-status-pill.canonical { color: var(--canonical); border-color: var(--canonical); }
+.ev-status-pill.observation { color: var(--observation); border-color: var(--observation); }
+.ev-status-pill.testimony { color: var(--testimony); border-color: var(--testimony); }
+.ev-status-pill.inferred { color: var(--accent); border-color: var(--accent); }
+.ev-status-pill.belief,
+.ev-status-pill.hypothesis,
+.ev-status-pill.rumor { color: var(--muted-foreground); }
+.ev-provenance {
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 2px solid var(--accent);
+  background: rgba(20, 17, 12, 0.6);
+}
+.ev-prov-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+.ev-prov-source { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); }
+.ev-prov-quote {
+  margin: var(--sp-1) 0;
+  padding-left: var(--sp-2);
+  border-left: 1px solid var(--border);
+  font-style: italic;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.ev-prov-meta { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); }
 
 /* ---- established facts (resolved statements, not IDs) ---- */
 .fact-item {

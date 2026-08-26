@@ -59,6 +59,16 @@ test("literary surface renders and core loop updates evidence + resolved facts",
 
   // Case file shows TRUST · CHRIS (a real engine value), not a dead stat.
   await expect(page.locator(".file").getByText("TRUST · CHRIS")).toBeVisible();
+
+  // ADR-014 §5 — Evidence items are clickable; revealing provenance surfaces
+  // the source (epistemic disclosure), never asserting world-truth.
+  await evItem.click();
+  const prov = evItem.locator(".ev-provenance");
+  await expect(prov).toBeVisible({ timeout: 10_000 });
+  await expect(prov.locator(".ev-prov-label")).toHaveText("PROVENANCE");
+  // Collapsing works.
+  await evItem.click();
+  await expect(prov).toHaveCount(0);
 });
 
 test("command affordance is collapsed, not a permanent wall", async ({ page }) => {

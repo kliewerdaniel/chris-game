@@ -10,6 +10,7 @@
  */
 
 import type { WorldState, NarrationLine, Evidence, FactStatus, DisclosureMode } from "../lib/core/types";
+import { useState } from "react";
 import { getFact } from "../lib/core/facts";
 import { CORPUS_CHRIS_PROVENANCE } from "../lib/core/evidence";
 import type { TravelJournal } from "../lib/core/travel";
@@ -312,6 +313,7 @@ export function CaseFile(props: {
     boardOpen, board, onCloseBoard, evidence, established, ws, meta,
     commandHints, onPickCommand, helpOpen, onToggleHelp, fileOpen,
   } = props;
+  const [expandedEvidence, setExpandedEvidence] = useState<Set<string>>(new Set());
   return (
     <aside className={`file${fileOpen ? " open" : ""}`}>
       {boardOpen && (
@@ -420,12 +422,52 @@ export function CaseFile(props: {
 
       <div className="section-title">Evidence</div>
       {evidence.length === 0 && <div className="empty">Nothing recovered yet. Search the room.</div>}
-      {evidence.map((e) => (
-        <div key={e.id} className={`ev-item ${e.status === "canonical" ? "is-canonical" : e.status === "observation" ? "is-observation" : e.status === "testimony" ? "is-testimony" : ""}`}>
-          <div className="t">{e.title}</div>
-          <div className="c">{e.content}</div>
-        </div>
-      ))}
+      {evidence.map((e) => {
+        const expanded = expandedEvidence.has(e.id);
+        return (
+          <div
+            key={e.id}
+            className={`ev-item ${e.status === "canonical" ? "is-canonical" : e.status === "observation" ? "is-observation" : e.status === "testimony" ? "is-testimony" : ""}${expanded ? " expanded" : ""}`}
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              setExpandedEvidence((prev) => {
+                const next = new Set(prev);
+                next.has(e.id) ? next.delete(e.id) : next.add(e.id);
+                return next;
+              })
+            }
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter" || ev.key === " ") {
+                ev.preventDefault();
+                setExpandedEvidence((prev) => {
+                  const next = new Set(prev);
+                  next.has(e.id) ? next.delete(e.id) : next.add(e.id);
+                  return next;
+                });
+              }
+            }}
+          >
+            <div className="t">
+              {e.title}
+              <span className={`ev-status-pill ${e.status}`}>{e.status}</span>
+            </div>
+            <div className="c">{e.content}</div>
+            {expanded && e.provenance && (
+              <div className="ev-provenance">
+                <div className="ev-prov-label">PROVENANCE</div>
+                <div className="ev-prov-source">{e.provenance.source || e.provenance.sourceType}</div>
+                {e.provenance.quote && <blockquote className="ev-prov-quote">{e.provenance.quote}</blockquote>}
+                <div className="ev-prov-meta">
+                  {e.provenance.sourceType}
+                  {e.provenance.sourceId ? ` · ${e.provenance.sourceId}` : ""}
+                  {typeof e.provenance.confidence === "number" ? ` · conf ${(e.provenance.confidence * 100).toFixed(0)}%` : ""}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       <div className="section-title">Ledger</div>
       <Ledger established={established} />
