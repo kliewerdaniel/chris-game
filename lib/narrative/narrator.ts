@@ -1,4 +1,4 @@
-import { WorldState, NarrationLine, CharacterDef, Fact, Provenance } from "../core/types";
+import { WorldState, NarrationLine, CharacterDef, Fact, FactStatus, Provenance } from "../core/types";
 import { CHARACTERS } from "../characters/chris";
 import { Retrieval } from "../retrieval/retrieval";
 import { NarrateBackend, DeterministicBackend, LocalInferenceBackend, createClientBackend } from "../inference/narrate-backend";
@@ -192,8 +192,19 @@ export class Narrator {
           if (retry) text = this.validateOutput(retry.text, ctx);
         }
       }
+      // EPISTEMIC BOUNDARY — the model only RENDERS the engine's already-decided
+      // handling; it never authors world-canon. So a line the reconstruction
+      // itself speaks (truth / lie / withhold / deflect / partial / unknown /
+      // threaten — anything but pure third-person narration) is stamped
+      // TESTIMONY, never CANONICAL. CANONICAL is reserved for the deterministic
+      // world's own ground truth (facts, evidence, engine-authored narration).
+      // This is what wakes the 8-hue status palette on model-voiced lines: the
+      // tag now reflects the engine's disclosure decision instead of always
+      // reading "canonical" and making the palette look identical/dormant.
+      const lineStatus: FactStatus =
+        ctx.handling && ctx.handling !== "narration" ? "testimony" : "canonical";
       return {
-        lines: [{ speaker: ctx.character ? "chris" : "narrator", text, status: ctx.handling === "lie" ? "testimony" : "canonical" }],
+        lines: [{ speaker: ctx.character ? "chris" : "narrator", text, status: lineStatus }],
         usedModel: !result.simulated,
         provider: result.simulated ? "deterministic" : "hosted",
         simulated: result.simulated,
