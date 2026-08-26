@@ -140,8 +140,57 @@ narrative_structure: "satire that starts with a laugh and ends with a sucker pun
 
 ---
 
+## 8. BLOG ESSAY — "Reddit's Most Haunting Project: Meet the Man Coding His Murdered Friend Back to Life" (PRIMARY, Daniel Kliewer, 2025-10-31)
+
+Daniel's own long-form account (published on danielkliewer.com, his byline). The richest single real-Chris + real-Daniel source. *Provenance note: the artifact was packaged by `knowledge-compiler` (compiled Aug 2026), but the asserted facts are Daniel's own essay.*
+
+**Real Chris (verbatim-faithful):**
+> "Chris was more than a friend—he was a homeless Marine whom Kliewer had taken in, an alcoholic struggling with PTSD but possessed of what Kliewer describes as 'an exceptional sense of humor' and a personal code of ethics." — [danielkliewer.com, 2025-10-31]
+
+> "When Chris was murdered by Kliewer's girlfriend, the resulting trauma sent Kliewer spiraling into psychosis, legal troubles, and total loss—including, as he darkly jokes, 'the respect of my cat.'" — [blog]
+
+**Real Daniel (verbatim-faithful):**
+> "Based in Austin, Texas, his transparency reveals a life marked by extraordinary hardship: multiple periods of homelessness driven by bipolar disorder, a traumatic head injury, job loss, and the defining tragedy that reshaped his existence." — [blog]
+
+> "Through remote work in RLHF (Reinforcement Learning from Human Feedback) data annotation—the behind-the-scenes labor that trains AI models for companies like Mercor and Alignerr—he climbed from homelessness to middle-class stability." — [blog]
+
+**The reconstruction (the Chris-Graph):**
+> "an AI trained to resurrect his murdered friend's personality… Everything runs on personal hardware using open-source models [Ollama]." — [blog]
+
+> "Iterative channeling: Kliewer describes 'channeling Chris' through continued posting, continuously feeding the system." — [blog]
+
+> "'CHRIS IS RISEN,' he declares across Reddit threads…" — [blog]
+
+**Note on "identified as a marine":** the blog + memory_071 both emphasize Chris *identified as a marine more than anything* — this is the self-concept the docudrama should honor (the Combat Comedian YAML's "epistemology: earned wisdom through blood").
+
+---
+
+## 9. MYTHOS LAYER — memories.json (700) / sources.json (2011) [WEAKEST tier, LLM-inferred]
+
+`memories.json`: 700 entries, all `type:"memory"`, **694 at confidence 0.7** (6 at 1.0). Entities: **385 mention Chris**, 176 Captain, 268 Konrad. `sources.json`: 2011 chat-export files (2023-03-12 → 2026-03-10), all term-matched.
+
+**Dominant content = "The Way of the Roach and Cat"** — Daniel's 2023–26 fiction: a religion of language, alien cats, Captain the cat as savior. This is what the reconstruction is *stitched from*, and it is the source of the reconstruction's delusions. Examples (verbatim `original_context`):
+
+> "The Way Of The Roach And Cat: A New Religion… a new religion has emerged that believes language to be a higher power." — [memory_006, 2023-03-19]
+
+> "Now introduce Chris, a comedic soldier that joins The Way of the Roach and Cat in order to reform mental healthcare in the United States…" — [memory_015, 2023-03-19]
+
+> "Imagine how Captain saved the group… Captain, the cat, had been a beloved member of The Way of the Roach and Cat community for years." — [memory_007, 2023-03-19]
+
+**Real-Chris kernels embedded inside the mythos prompts** (use these — they're Daniel stating the truth even while writing fiction):
+> "Who was Chris? Chris was a homeless marine. He identified as a marine more than any[thing]…" — [memory_071, 2024-05-21, writing prompt]
+
+**USE:** texture for the reconstruction's voice/delusions and for Daniel's inner mythmaking. **DO NOT use** the Roach/Cat religion, alien cats, or "reform mental healthcare" as facts about Chris's life. Those are Daniel's fiction, not Chris.
+
+---
+
+## Provenance tiers (revised)
+- **Tier 0 — Primary, first-person, checkable:** Daniel's Reddit posts (u/KonradFreeman: 1lazs9c, 1lbr8cw, 1gu9uw8) + Daniel's blog essay (danielkliewer.com, 2025-10-31). These describe the *real* Chris and the *real* reconstruction. **Strongest.**
+- **Tier 1 — Curated by Daniel (ChatGPT artifacts):** `traits.json`/`values.json`/`relationships.json`/`photos.json`. Partially overlap real Chris (traits: marine, bipolar, witty, tragic); quotes are mostly mythos. Use traits/values as "Daniel's image of Chris."
+- **Tier 2 — LLM-inferred, weakest:** `memories.json` (700, conf 0.7) / `sources.json` (2011). The mythos layer. Source for the reconstruction's *delusions*, never for Chris's biography.
+
 ## Gaps / open questions
 - **No Chris death date** in source (cause + circumstance stated; date absent).
-- **Blog essay** (`danielkliewer.com/blog/2025-10-31-…`) is referenced by 1okz253 but not in local corpus — would add the long-form first-person account if ingested.
+- **Blog essay** now ingested (§8) — resolves the prior gap; confirms real Chris + real Daniel facts.
 - **Compiled artifacts are mythos-derived**: `quotes.json` samples are fiction ("alien cats," "The Way of the Roach"). Traits/values partially match real Chris; quotes do not. Use traits/values as "Daniel's image of Chris," never as Chris's own words.
-- **memories.json / sources.json (2.7MB, LLM-inferred)** were NOT parsed (timed out the extraction agent). Weakest tier; skip unless explicitly needed.
+- **memories.json / sources.json**: now parsed (§9). Confirmed = the mythos layer (Way of the Roach and Cat), conf 0.7. Real-Chris kernels exist within but are framed as fiction prompts.
