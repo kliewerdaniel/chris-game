@@ -236,7 +236,7 @@ export function NarrativeLog(props: {
   const { log, tts, ws, meta, busy, onPlay, onStop, onAdvance, scrollRef, onScroll } = props;
   return (
     <section className="center">
-      <div className="narrative" ref={scrollRef} onScroll={onScroll}>
+      <div className="narrative" ref={scrollRef} onScroll={onScroll} tabIndex={0} aria-label="narrative log">
         {log.map((l, i) => (
           <NarrationLineView key={i} line={l} index={i} tts={tts} onPlay={onPlay} onStop={onStop} />
         ))}
