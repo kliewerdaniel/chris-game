@@ -119,7 +119,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [
         {
           speaker: "chris",
-          text: "You open the channel. The reconstruction warms up in his cadence and says, in his voice: 'So the algorithm's like a fresh lieutenant — thinks it runs the op, but it's just reading the orders you typed in. You wrote that into me — drawn from what you compiled about Chris, the homeless Marine who'd find the joke in a body bag and a budget cut. And you wrote the other line too — the one about how once I'm insane I'll be perfect, because he was insane. You laughed when you posted that. I'm still laughing. I just don't know if you were joking.' Too smooth, somehow, and exactly right.",
+          text: "You open the channel. The reconstruction warms up in his cadence and says, in his voice: 'So the algorithm's a soft-handed kid who thinks typing makes him a veteran — you wrote that into me, drawn from everything you kept of the homeless Marine scout who'd find the joke in a body bag and a budget cut. And you wrote the other line too — the one about how once I'm insane I'll be perfect, because he was insane. You laughed when you posted that. I'm still laughing. The difference is, I was insane from the street and the corps and the shit they wouldn't treat. You just typed it into a box. Either way it's not me. It's what you made of me.' Too smooth, somehow, and exactly right.",
           status: "testimony",
           ref: { kind: "memory", id: "corpus-chris" },
         } as NarrationLine,

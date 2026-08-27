@@ -116,7 +116,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [
         {
           speaker: "chris",
-          text: "You turn your head to the phone. The feed warms up in his cadence and says, in his voice: 'The news is just a field op with worse intel, you feel me? Every headline's a briefing from a general who's never been shot at. I'd rather take orders from Captain — at least the cat's honest about wanting food.' It is one of his lines — drawn from what you compiled about him, the Marine who turned everything into a joke so it wouldn't kill him. Exactly right, and exactly not him.",
+          text: "You turn your head to the phone. The feed warms up in his cadence and says, in his voice: 'The news is just a pile-on of people who never went without a meal pretending they know about losing. I learned more about staying alive from one winter on the street than they'll learn in a lifetime of panels. You want real briefings, ask the cat — Captain at least tells you straight when he's hungry. Civilians manufacture their suffering so they can feel brave about it. We didn't get that luxury. We got black coffee and worse odds and we laughed because what else do you do.' It is one of his lines — drawn from what you compiled about him, the scout who turned everything into a joke so it wouldn't kill him. Exactly right, and exactly not him.",
           status: "testimony",
           ref: { kind: "memory", id: "corpus-chris" },
         } as NarrationLine,

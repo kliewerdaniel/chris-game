@@ -123,7 +123,7 @@ function doTalk(s: WorldState, a: GameAction): { state: WorldState; result: Acti
       narration: [
         {
           speaker: "chris",
-          text: "You sit with the phone. The feed shifts to make room for you in its cadence, then offers, in his voice: 'So the news today — some general gets caught lying about a body count, right? Classic. Reminds me of my CO. Dude could brief a field op with more holes than a beat-up Humvee. I ever tell you about the time we—' It breaks off, the way it does, and starts the joke over. It is drawn from what you compiled about him: the man who found a laugh in almost everything, the homeless Marine who'd crack you up in your darkest hour. Exactly right, and exactly not him.",
+          text: "You sit with the phone. The feed shifts to make room for you in its cadence, then offers, in his voice: 'News today — some suit on TV, all choked up about how hard it is to be him. Ha. Try sleeping in a drainage culvert in February with your boots for a pillow, then tell me about hard. We didn't get soft in the corps, we got quiet — you learn fast out there which comforts are lies. Civilian tears are the funniest shit I ever saw.' It breaks off, the way it does, and starts the joke over. It is drawn from what you compiled about him: the homeless Marine scout who'd crack you up in your darkest hour — gravel-dry, pitch-black, earned the hard way. Exactly right, and exactly not him.",
           status: "testimony",
           ref: { kind: "memory", id: "corpus-chris" },
         } as NarrationLine,
