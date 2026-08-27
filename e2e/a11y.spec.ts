@@ -48,16 +48,15 @@ test("home page has no axe violations (wcag2a/aa/21 + best-practice)", async ({ 
   expect(violations, `axe violations: ${JSON.stringify(violations)}`).toEqual([]);
 });
 
-test("reconstruction scene: §9 parallel DOM control surface is axe-clean", async ({ page }) => {
+test("reconstruction board: §9 parallel DOM control surface is axe-clean", async ({ page }) => {
   await page.goto("/");
-  const toggle = page.locator(".scene-toggle");
+  await page.getByRole("button", { name: "BEGIN RECONSTRUCTION" }).click();
+  await expect(page.locator(".header h1")).toHaveText("CHRIS");
+  const toggle = page.locator(".board-toggle");
   await expect(toggle).toBeVisible();
   await toggle.click();
-  await expect(page.locator(".recon-scene")).toBeVisible({ timeout: 20_000 });
-  // Switch through the modes to exercise graph / palace / room DOM frames.
-  await page.locator(".recon-mode-toggle button", { hasText: "the web" }).click();
-  await expect(page.locator(".recon-scene canvas")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".board")).toBeVisible({ timeout: 20_000 });
   const violations = await runAxe(page);
-  console.log("structural axe violations (scene):", JSON.stringify(violations));
+  console.log("structural axe violations (board):", JSON.stringify(violations));
   expect(violations, `axe violations: ${JSON.stringify(violations)}`).toEqual([]);
 });

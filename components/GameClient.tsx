@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { WorldState, NarrationLine, Evidence, GameAction } from "../lib/core/types";
 import {
   TravelJournal,
@@ -17,22 +16,19 @@ import type { TtsLine } from "./tts-types";
 import { createClientEngine, EPISODES } from "../lib/engine/game-engine";
 import { buildInvestigationPayload } from "../lib/core/investigation";
 import { parseAction, isConfident } from "../lib/inference/intent";
+import { buildGraphLayout } from "../lib/reconstruction/graph";
+import { getFact } from "../lib/core/facts";
 import {
   GameHeader,
   TravelBar,
   NarrativeLog,
-  CaseFile,
   CommandInput,
   Toast,
   TabBar,
 } from "./GameShell";
-
-// ADR-014 Phase B: the R3F reconstruction visual is client-only (Three.js).
-// No SSR — dynamic import with `ssr: false` so the canvas never renders server-side.
-const ReconstructionScene = dynamic(() => import("./ReconstructionScene"), {
-  ssr: false,
-  loading: () => <div className="recon-loading">assembling reconstruction…</div>,
-});
+import InvestigationBoard from "./InvestigationBoard";
+import EvidenceReveal from "./EvidenceReveal";
+import OpeningSequence from "./OpeningSequence";
 
 const SAVE_KEY = "chris-game-save-v2";
 
@@ -101,6 +97,11 @@ export function GameClient() {
   const ttsEnabled = process.env.NEXT_PUBLIC_TTS_ENABLED === "1";
   const [mobileTab, setMobileTab] = useState<"world" | "board" | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  // The Reconstruction: opening sequence + evidence-reveal cinematic.
+  // Both are presentational overlays — they never gate or mutate engine state.
+  const [openingDone, setOpeningDone] = useState(false);
+  const [reveal, setReveal] = useState<Evidence | null>(null);
+  const [revealConnections, setRevealConnections] = useState<string[]>([]);
   // ADR-014 §5.2 auto-prompt — proactive next-step nudge on the main surface.
   // Holds the engine's suggestion (factId + label) so the player sees it without
   // opening the Board. Cleared when there's nothing to suggest or it's unchanged.
@@ -617,6 +618,17 @@ export function GameClient() {
       if (result.discoveredEvidence?.length) {
         setEvidence((e) => [...e, ...result.discoveredEvidence!]);
         setToast(`Evidence discovered: ${result.discoveredEvidence.map((d) => d.title).join(", ")}`);
+        // Signature "evidence reveal": freeze the world and bring the artifact
+        // into the center. The player places it on the board (or investigates
+        // the thread) from the overlay. Presentational only — engine already
+        // committed the discovery to state.
+        const first = result.discoveredEvidence[0];
+        setReveal(first);
+        setRevealConnections(
+          [...(first.supportsFactIds ?? []), ...(first.contradictsFactIds ?? [])]
+            .map((id) => getFact(id)?.statement ?? id)
+            .slice(0, 4)
+        );
       }
       if (result.establishedFacts?.length) {
         setEstablished((f) => [...f, ...result.establishedFacts!]);
@@ -689,6 +701,10 @@ export function GameClient() {
 
   const ws = state;
   const meta = epMeta;
+  // The Reconstruction graph is a pure, deterministic projection of the engine's
+  // WorldState (built by lib/reconstruction/graph.ts). Identity-stable across
+  // turns (seeded, no Math.random) so the board never reshuffles under the player.
+  const graph = useMemo(() => (ws ? buildGraphLayout(ws) : null), [ws]);
   return (
     <main className="app">
       <GameHeader
@@ -706,15 +722,25 @@ export function GameClient() {
 
       <button
         type="button"
-        className={`asbtn scene-toggle${sceneOpen ? " active" : ""}`}
-        onClick={() => setSceneOpen((v) => !v)}
-        title="Toggle the reconstruction visual"
+        className={`asbtn board-toggle${boardOpen ? " active" : ""}`}
+        onClick={() => {
+          setBoardOpen((v) => !v);
+          if (state) void refreshBoard(state);
+        }}
+        title="Toggle the reconstruction board"
       >
-        {sceneOpen ? "hide reconstruction" : "show reconstruction"}
+        {boardOpen ? "hide board" : "show board"}
       </button>
 
-      {sceneOpen && ws && (
-        <ReconstructionScene ws={ws} onChallengeClaim={challengeClaim} />
+      {boardOpen && graph && ws && (
+        <InvestigationBoard
+          graph={graph}
+          evidenceCount={evidence.length}
+          questionCount={board?.openLeads?.length ?? 0}
+          contradictionCount={board?.visibleContradictions?.length ?? 0}
+          onChallenge={challengeClaim}
+          onInspect={() => {}}
+        />
       )}
 
       <TravelBar
@@ -736,22 +762,6 @@ export function GameClient() {
         onAdvance={advanceEpisode}
         scrollRef={scrollRef}
         onScroll={onScroll}
-      />
-
-      <CaseFile
-        boardOpen={boardOpen}
-        board={board}
-        onCloseBoard={() => setBoardOpen(false)}
-        evidence={evidence}
-        established={established}
-        ws={ws}
-        meta={meta}
-        commandHints={commandHints(ws)}
-        onPickCommand={(c: string) => setInput(c)}
-        helpOpen={helpOpen}
-        onToggleHelp={() => setHelpOpen((v) => !v)}
-        fileOpen={mobileTab === "board"}
-        onChallengeClaim={challengeClaim}
       />
 
       <CommandInput
@@ -783,6 +793,20 @@ export function GameClient() {
       <TabBar
         fileOpen={mobileTab === "board"}
         onToggle={() => setMobileTab((cur) => (cur === "board" ? null : "board"))}
+      />
+
+      {!openingDone && <OpeningSequence onBegin={() => setOpeningDone(true)} />}
+
+      <EvidenceReveal
+        evidence={reveal}
+        connections={revealConnections}
+        onPlace={() => setReveal(null)}
+        onInvestigate={() => {
+          const id = reveal?.id;
+          setReveal(null);
+          if (id) void challengeClaim(id);
+        }}
+        onDismiss={() => setReveal(null)}
       />
 
       {confirmNew && (

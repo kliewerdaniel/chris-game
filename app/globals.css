@@ -793,167 +793,311 @@ button:disabled { cursor: not-allowed; }
   .file { transition: none !important; }
 }
 
-/* ADR-014 Phase B — R3F reconstruction visual panel */
-.scene-toggle {
+/* ===== THE RECONSTRUCTION — diegetic investigation surface =====
+   Replaces the 3D R3F scene. The board IS the game world: a 2D archival wall
+   of artifact cards + red tension threads, projected deterministically from the
+   engine's GraphState. Dark archival cinematic. Three layers: Experience
+   (narrative) / Investigate (board) / Remember (evidence reveal). */
+
+.board-toggle {
   display: inline-block;
   margin: var(--sp-2) 0 var(--sp-1) var(--sp-3);
   font-size: 11px;
   letter-spacing: 0.04em;
   opacity: 0.8;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--ink-dim);
+  padding: 3px 10px;
+  cursor: pointer;
 }
-.scene-toggle.active { color: var(--accent); border-color: var(--accent); }
+.board-toggle.active { color: var(--accent); border-color: var(--accent); }
 
-.recon-scene {
+/* The investigation board — fills the screen as the primary surface. */
+.board {
   position: relative;
   width: 100%;
-  height: 320px;
-  margin: 0 0 var(--sp-3) 0;
+  min-height: 56vh;
   border: 1px solid var(--border);
   border-radius: 8px;
+  margin: 0 0 var(--sp-3) 0;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #14110c 0%, var(--bg-sunken) 70%);
   overflow: hidden;
-  background: #0a0a0c;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.015) 0 1px, transparent 1px),
+    radial-gradient(circle at 70% 60%, rgba(255,255,255,0.012) 0 1px, transparent 1px);
+  background-size: 23px 23px, 31px 31px;
 }
-.recon-mode-toggle {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  z-index: 3;
-  display: flex;
-  gap: 4px;
-}
-.recon-mode-toggle .asbtn {
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: rgba(12, 12, 14, 0.6);
-  color: var(--muted-foreground);
-  cursor: pointer;
-}
-.recon-mode-toggle .asbtn.active {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.recon-loading {
-  padding: var(--sp-3);
-  font-size: 12px;
-  color: var(--muted-foreground);
-}
-.recon-legend {
-  position: absolute;
-  bottom: 6px;
-  left: 8px;
-  right: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  color: var(--muted-foreground);
+.board-surface { position: absolute; inset: 0; }
+
+.board-threads {
+  position: absolute; inset: 0; width: 100%; height: 100%;
   pointer-events: none;
 }
-.recon-legend .solid { color: #e8eef0; }
-.recon-legend .stitched { color: var(--accent); }
+.board-threads .thread.tension {
+  filter: drop-shadow(0 0 1.4px rgba(176, 92, 68, 0.7));
+  animation: contra-pulse 2.4s var(--ease) infinite;
+}
+@keyframes contra-pulse { 0%,100% { opacity: 0.45; } 50% { opacity: 0.95; } }
 
-.recon-detail {
-  position: relative;
-  margin: 0 var(--sp-3) var(--sp-3) var(--sp-3);
-  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-2);
-  border-left: 2px solid var(--accent);
-  background: rgba(20, 17, 12, 0.7);
-}
-.recon-detail-close {
+/* Artifact cards — each looks like a physical object on the wall. */
+.board-card {
   position: absolute;
-  top: 4px;
-  right: 6px;
-  background: none;
-  border: none;
-  color: var(--muted-foreground);
-  font-size: 16px;
-  line-height: 1;
+  transform: translate(-50%, -50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--card-status, var(--border-strong));
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: left;
   cursor: pointer;
+  color: var(--ink);
+  font: inherit;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.02);
+  transition: transform var(--motion) var(--ease), border-color var(--motion) var(--ease), box-shadow var(--motion) var(--ease);
+  min-width: 60px;
 }
-.recon-detail-kind {
-  font-size: 10px;
+.board-card.placed { animation: card-drop 360ms var(--ease) both; }
+@keyframes card-drop { from { opacity: 0; transform: translate(-50%, -46%) scale(0.96); } to { opacity: 1; } }
+.board-card:hover, .board-card.selected {
+  transform: translate(-50%, -50%) scale(1.04);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 6px 18px rgba(0,0,0,0.5);
+  z-index: 5;
+}
+.board-card .card-frame { display: flex; flex-direction: column; gap: 2px; }
+.board-card .card-kind {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.board-card .card-label {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.board-card .card-status {
+  font-family: var(--font-mono);
+  font-size: 8px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 4px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 2px;
+  margin-top: 2px;
+  color: var(--ink-faint);
 }
-.recon-detail-text {
-  font-size: 13px;
-  color: var(--foreground);
+.board-card.authored { border-style: dashed; }
+.board-card.status-testimony { border-left: 3px solid var(--testimony); }
+.board-card.status-canonical { border-left: 3px solid var(--canonical); }
+.board-card.status-belief { border-left: 3px solid var(--belief); }
+.board-card.status-hypothesis { border-left: 3px solid var(--hypothesis); }
+.board-card.status-rumor { border-left: 3px solid var(--rumor); }
+.board-card.status-observation { border-left: 3px solid var(--observation); }
+.board-card.status-unknown { border-left: 3px solid var(--unknown); }
+
+/* Selected card detail — diegetic, no meta chrome. */
+.board-detail {
+  position: absolute;
+  right: 10px; top: 10px;
+  width: 240px;
+  background: var(--bg-soft);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: var(--sp-3);
+  z-index: 6;
 }
-.recon-detail-quote {
-  margin: var(--sp-1) 0 0;
-  padding-left: var(--sp-2);
-  border-left: 1px solid var(--border);
-  font-style: italic;
+.board-detail-kind { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.board-detail-label { font-family: var(--font-serif); font-size: 18px; color: var(--ink); margin: 4px 0; }
+.board-detail-status { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; }
+.board-detail-note { font-size: 12px; color: var(--ink-faint); font-style: italic; margin-top: 4px; }
+.board-detail-investigate, .board-detail-close {
+  margin-top: var(--sp-2);
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--ink-dim); font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer;
+}
+.board-detail-close { position: absolute; top: 4px; right: 6px; color: var(--ink-faint); }
+
+.board-contradictions {
+  position: absolute;
+  left: 10px; bottom: 10px; right: 260px;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 4;
+}
+.contradiction-note {
+  font-family: var(--font-serif);
   font-size: 12px;
-  color: var(--muted-foreground);
+  font-style: italic;
+  color: var(--contradiction);
+  background: rgba(176, 92, 68, 0.08);
+  border-left: 2px solid var(--contradiction);
+  padding: 4px 8px;
 }
-.recon-detail-meta {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--muted-foreground);
+.contradiction-mark { font-family: var(--font-mono); }
+
+/* Bottom memoria bar — replaces the dashboard utility panels. */
+.boardbar {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 6px var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  background: var(--bg-soft);
+}
+.boardbar-mark { color: var(--ink); letter-spacing: 0.18em; font-size: 11px; }
+.boardbar-cell { display: inline-flex; align-items: baseline; gap: 5px; cursor: default; }
+.boardbar-cell .n { color: var(--accent); font-size: 13px; }
+.boardbar-cell.has-contra { color: var(--contradiction); }
+.boardbar-cell.has-contra .n { color: var(--contradiction); }
+
+/* §9 parallel DOM control surface — keyboard/AT operable, visually hidden. */
+.board-dom-list {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  list-style: none;
+}
+.board-dom-list:focus-within { /* promote when focused via keyboard */ }
+
+/* ===== EVIDENCE REVEAL — freeze + center the artifact ===== */
+.reveal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-start; justify-content: center;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-3);
+}
+.reveal-vignette {
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(8,7,5,0.86) 0%, rgba(5,4,3,0.97) 80%);
+  backdrop-filter: blur(3px);
+}
+.reveal-stage {
+  position: relative; z-index: 1; margin: auto;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-4);
+  padding: var(--sp-5);
+  max-width: 520px;
+  animation: reveal-in 420ms var(--ease) both;
+}
+@keyframes reveal-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; } }
+.reveal-tag {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.3em;
+  color: var(--accent);
+}
+.reveal-artifact {
+  width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+.reveal-artifact-frame { padding: var(--sp-5) var(--sp-5) var(--sp-4); }
+.reveal-kind {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.reveal-title {
+  font-family: var(--font-display); font-size: 26px; line-height: 1.2;
+  color: var(--ink); margin: 6px 0 var(--sp-3);
+}
+.reveal-body {
+  font-family: var(--font-serif); font-size: 16px; line-height: 1.6;
+  color: var(--ink-dim);
+}
+.reveal-meta-label {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+  color: var(--ink-faint); display: inline-block; min-width: 90px;
+}
+.reveal-source, .reveal-status, .reveal-connections {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim);
+  margin-top: var(--sp-2); border-top: 1px solid var(--border-soft); padding-top: var(--sp-2);
+}
+.reveal-actions { display: flex; gap: var(--sp-3); }
+.reveal-place {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em;
+  background: var(--accent); color: #14110a; border: none; border-radius: 4px;
+  padding: 10px 22px; cursor: pointer;
+}
+.reveal-investigate {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em;
+  background: none; border: 1px solid var(--border-strong); color: var(--ink-dim);
+  border-radius: 4px; padding: 10px 18px; cursor: pointer;
 }
 
-/* §9 DOM safety net — spatial relations as text. Screen-reader + WebGL-fail
-   audiences get the layout as text. Visually hidden but present in the DOM. */
-.recon-spatial-sr {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-/* Keyboard-parallel control list: present for AT/keyboard even when sr-only.
-   When promoted to visible (no canvas) the buttons are real controls. */
-.recon-dom-item {
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  color: var(--foreground);
-  background: rgba(28, 24, 18, 0.85);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  margin: 2px 4px 2px 0;
+/* ===== OPENING SEQUENCE — black screen title crawl ===== */
+.opening {
+  position: fixed; inset: 0; z-index: 100;
+  background: #050403;
+  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
 }
-.recon-dom-item[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--accent);
+.opening-photo {
+  position: absolute; inset: 0;
+  opacity: 0; transition: opacity 2.4s var(--ease);
+  display: flex; align-items: center; justify-content: center;
 }
-.recon-dom-item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+.opening-photo[data-show="true"] { opacity: 0.22; }
+.opening-photo-frame {
+  width: min(46vw, 420px); height: min(60vh, 520px);
+  background:
+    linear-gradient(180deg, rgba(60,52,40,0.5), rgba(20,16,12,0.9)),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0 2px, transparent 2px 4px);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  filter: grayscale(0.6) contrast(1.05) sepia(0.2);
+  display: flex; align-items: flex-end; justify-content: center;
 }
-/* If WebGL is unavailable the canvas won't mount; surface the text fallback
-   AND make the parallel control list fully operable (the only way to inspect
-   fragments without a canvas). */
-.recon-scene:not(:has(canvas)) .recon-spatial-sr {
-  position: relative;
-  width: auto;
-  height: auto;
-  margin: 0;
-  clip: auto;
-  padding: var(--sp-2) var(--sp-3);
-  font-size: 12px;
-  color: var(--muted-foreground);
-  overflow: visible;
+.opening-photo-grain {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.04) 0 1px, transparent 1px);
+  background-size: 3px 3px; opacity: 0.5;
 }
+.opening-photo-caption {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  color: var(--ink-faint); padding: var(--sp-2); margin-bottom: var(--sp-3);
+}
+.opening-center {
+  position: relative; z-index: 1; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-4);
+}
+.opening-title {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 12vw, 130px);
+  font-weight: 300; letter-spacing: 0.14em;
+  color: var(--ink); margin: 0;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 1.6s var(--ease), transform 1.6s var(--ease);
+}
+.opening-title[data-show="true"] { opacity: 1; transform: none; }
+.opening-sub {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.32em;
+  color: var(--accent); opacity: 0; transition: opacity 1.4s var(--ease);
+}
+.opening-sub[data-show="true"] { opacity: 0.9; }
+.opening-lines {
+  font-family: var(--font-serif); font-size: 17px; line-height: 2;
+  color: var(--ink-dim); font-style: italic;
+  opacity: 0; transition: opacity 1.8s var(--ease);
+}
+.opening-lines[data-show="true"] { opacity: 1; }
+.opening-begin {
+  font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.22em;
+  background: none; border: 1px solid var(--accent); color: var(--accent);
+  padding: 12px 28px; border-radius: 4px; cursor: pointer;
+  opacity: 0; transition: opacity 1.2s var(--ease), background 200ms, color 200ms;
+}
+.opening-begin[data-show], .opening-begin { }
+.opening-begin:not(:disabled) { opacity: 1; }
+.opening-begin:hover { background: var(--accent); color: #14110a; }
 
-/* Reduced-motion: the scene renders static (no drift/flicker handled in JS),
-   and any CSS animation on the reconstruction surface is suppressed. */
+/* Reduced motion: collapse the crawl to a static title + button. */
 @media (prefers-reduced-motion: reduce) {
-  .recon-scene * {
-    animation: none !important;
-    transition: none !important;
+  .opening-photo, .opening-title, .opening-sub, .opening-lines, .reveal-stage, .board-card.placed {
+    transition: none !important; animation: none !important;
   }
+  .board-threads .thread.tension { animation: none !important; }
 }
