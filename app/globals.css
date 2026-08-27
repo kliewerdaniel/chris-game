@@ -546,7 +546,6 @@ button:disabled { cursor: not-allowed; }
 .board-section.suggest .suggest-label { color: var(--accent); border-bottom: none; padding-bottom: 0; margin-bottom: var(--sp-2); }
 .board-row.suggest-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .board-row.suggest-row .board-text { flex: 1 1 auto; }
-.recon-detail-challenge { margin-top: var(--sp-3); }
 .continue-btn {
   margin-top: var(--sp-4);
   background: transparent;

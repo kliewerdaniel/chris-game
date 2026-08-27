@@ -3,8 +3,9 @@
  *
  * Mirror of `state.ts`: a PURE, DETERMINISTIC bridge from `WorldState` to the
  * spatial framing of one authored environment ("the room"). No React, no
- * Three.js, no engine mutation. The renderer (`RoomEnvironment.tsx`) consumes
- * this and never reads engine state directly.
+ * Three.js, no engine mutation. Consumed by `tests/room.test.ts` and
+ * `tests/visual-state.test.ts`; no live UI renderer (the 3D `RoomEnvironment.tsx`
+ * was retired in "The Reconstruction" redesign).
  *
  * Epistemic boundary (unchanged from the rest of the reconstruction system):
  *   - This module reads only `WorldState` (engine-owned) + the canonical catalogs.

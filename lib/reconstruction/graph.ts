@@ -1,19 +1,19 @@
 /**
- * INVESTIGATION-GRAPH LAYOUT — deterministic spatial adapter (D4).
+ * INVESTIGATION-GRAPH STATE — deterministic spatial adapter (D4).
  *
- * Mirror of `state.ts` / `room.ts`: a PURE, DETERMINISTIC bridge from
- * `WorldState` to a 3D **constellation** of the investigation graph. No React,
- * no Three.js, no engine mutation. The renderer (`GraphConstellation.tsx`)
- * consumes this and never reads engine state directly.
+ * PURE, DETERMINISTIC bridge from `WorldState` to the 2D investigation-graph
+ * (`GraphState`), consumed by `lib/board/board-layout.ts` and rendered by
+ * `components/InvestigationBoard.tsx`. No React, no Three.js, no engine
+ * mutation — the renderer never reads engine state directly.
  *
- * What it draws (all already computed by `buildReconstructionState`):
+ * What it carries (all already computed by `buildReconstructionState`):
  *   - GRAPH NODES: the engine's investigation-graph `topology` (person / event /
  *     place / claim / character / evidence) + the player's reconstruction
- *     `fragments` — laid out in 3D space.
+ *     `fragments`.
  *   - EDGES: the graph `edges` (supports / contradicts / claimedBy / verifiedBy
- *     / relatesTo) — drawn as thin threads between nodes.
+ *     / relatesTo) — drawn as thin threads between nodes on the board.
  *   - CONTRADICTIONS: the reconstruction `contradictions` — drawn as hot tension
- *     edges (never a world-truth claim; just epistemic tension made visible).
+ *     threads (never a world-truth claim; just epistemic tension made visible).
  *
  * Layout is deterministic and order-independent: identical WorldState -> identical
  * GraphState (a stable hash positions each node; a fixed spiral spreads the
